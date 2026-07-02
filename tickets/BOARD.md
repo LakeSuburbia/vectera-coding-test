@@ -1,7 +1,6 @@
 # Kanban Board
 
 ## To Do
-- [VCT-1](VCT-1.md) — Meeting list + retrieve endpoints
 - [VCT-2](VCT-2.md) — Meeting create endpoint
 - [VCT-3](VCT-3.md) — Add note endpoint
 - [VCT-4](VCT-4.md) — List notes endpoint
@@ -21,6 +20,7 @@
 - [VCT-18](VCT-18.md) — Fill in DECISIONS.md
 
 ## In Progress
+- [VCT-1](VCT-1.md) — Meeting list + retrieve endpoints
 
 ## In Review
 
