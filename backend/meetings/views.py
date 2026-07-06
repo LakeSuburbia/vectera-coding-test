@@ -3,7 +3,7 @@ import threading
 from typing import Any, Callable
 
 from asgiref.sync import async_to_sync
-from django.db import connection
+from django.db import connection, transaction
 from django.db.models import Count
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 def _spawn(target: Callable[..., None], *args: Any) -> None:
     threading.Thread(target=target, args=args, daemon=True).start()
 
-
+@transaction.atomic(durable=True)
 def _run_summary_job(meeting_id: int) -> None:
     """Runs off-thread: fetches its own Summary/Note rows and closes its own connection."""
     summary = Summary.objects.get(meeting_id=meeting_id)
