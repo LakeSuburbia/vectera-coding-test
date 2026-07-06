@@ -17,7 +17,7 @@ class PostSummarySerializer(serializers.ModelSerializer):
         fields = []
 
 class MeetingSerializer(serializers.ModelSerializer):
-    note_count = serializers.IntegerField(read_only=True)
+    note_count = serializers.IntegerField(read_only=True, default=0)
     latest_summary = SummarySerializer(source="summary", read_only=True)
 
     class Meta:
