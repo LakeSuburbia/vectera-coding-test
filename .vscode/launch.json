@@ -1,0 +1,32 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Attach to Chrome (Angular)",
+            "type": "chrome",
+            "request": "attach",
+            "port": 9222,
+            "webRoot": "${workspaceFolder}/frontend"
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch Chrome (Angular app)",
+            "url": "http://localhost:4200/meetings",
+            "webRoot": "${workspaceFolder}/frontend"
+        },
+        {
+            "name": "Django: runserver",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/backend/manage.py",
+            "args": [
+                "runserver",
+                "0.0.0.0:8000"
+            ],
+            "cwd": "${workspaceFolder}/backend",
+            "django": true,
+            "console": "integratedTerminal"
+        }
+    ]
+}

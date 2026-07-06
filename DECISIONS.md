@@ -5,3 +5,18 @@ Briefly note:
 - Deviations from the initial spec (if any) and why.
 - Next improvements you'd make if you had more time.
 - Time spent per area.
+
+Overall Assumptions:
+- This is a dev project that is currently implemented in a way that is easy to debug, rather than a complete, production-safe implementation.
+
+FRIDAY 03/07/2026
+Prep Work
+Time spent: 30'
+
+- Get to know the assignment & plan on how to tackle it.
+- Added debug tools
+    - Django Extensions -> For shell_plus access
+    - "Attach to Chrome" debugger -> to debug frontend
+    - "runserver" debugger -> to debug backend
+    - Change pagination setting to "5" -> for easier testing / debugging
+- Decided to not continue with the assignment today, due to brain fog because I'm recovering from a concussion.
