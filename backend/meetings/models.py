@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 from django.db import models
@@ -15,7 +17,7 @@ class Meeting(models.Model):
 
 
 class NoteManager(models.Manager):
-    def create(self, meeting_id, author, text):
+    def create(self, meeting_id: int, author: str, text: str) -> "Note":
         note = super().create(meeting_id=meeting_id, author=author, text=text)
         log.info("Note added to meeting %s by %s", meeting_id, author)
         return note
@@ -37,7 +39,7 @@ class Note(models.Model):
 
 
 class SummaryManager(models.Manager):
-    def initialize(self, meeting_id):
+    def initialize(self, meeting_id: int) -> "Summary":
         summary, _ = self.update_or_create(
             meeting_id=meeting_id, defaults={"status": Summary.PENDING}
         )
@@ -67,7 +69,7 @@ class Summary(models.Model):
     class Meta:
         ordering = ["-updated_at"]
 
-    def write(self, content):
+    def write(self, content: str) -> None:
         if self.status == Summary.READY:
             raise ValueError("Summary has been finalized and cannot be modified.")
         if content:
@@ -82,7 +84,7 @@ class Summary(models.Model):
             )
         self.save()
 
-    def fail(self, exception=None):
+    def fail(self, exception: Exception | None = None) -> None:
         if not self.status == Summary.PENDING:
             raise ValueError(
                 "Summary is not in a pending state and cannot be marked as failed."

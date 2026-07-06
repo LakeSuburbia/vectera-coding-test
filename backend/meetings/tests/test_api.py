@@ -1,12 +1,14 @@
 import pytest
 from rest_framework import status
+from rest_framework.test import APIClient
 
-from meetings.models import Note, Summary
+from meetings.models import Meeting, Note, Summary
 from meetings.services.ai import client as ai_client
 
 
+
 @pytest.mark.django_db
-def test_health_check(api_client):
+def test_health_check(api_client: APIClient) -> None:
     response = api_client.get("/api/health/")
 
     assert response.status_code == status.HTTP_200_OK
@@ -14,7 +16,7 @@ def test_health_check(api_client):
 
 
 @pytest.mark.django_db
-def test_create_and_list_meetings(api_client):
+def test_create_and_list_meetings(api_client: APIClient) -> None:
     create_response = api_client.post(
         "/api/meetings/",
         {"title": "Sprint planning", "started_at": "2026-07-01T10:00:00Z"},
@@ -32,7 +34,7 @@ def test_create_and_list_meetings(api_client):
 
 
 @pytest.mark.django_db
-def test_add_and_list_notes_happy_path(api_client, meeting):
+def test_add_and_list_notes_happy_path(api_client: APIClient, meeting: Meeting) -> None:
     add_response = api_client.post(
         f"/api/meetings/{meeting.id}/notes/",
         {"author": "Alice", "text": "Discussed the roadmap."},
@@ -49,10 +51,10 @@ def test_add_and_list_notes_happy_path(api_client, meeting):
 
 
 @pytest.mark.django_db
-def test_summarize_happy_path(api_client, meeting, monkeypatch):
-    Note.objects.create(meeting=meeting, author="Alice", text="Discussed the roadmap.")
+def test_summarize_happy_path(api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch) -> None:
+    Note.objects.create(meeting_id=meeting.id, author="Alice", text="Discussed the roadmap.")
 
-    async def fake_summarize(text):
+    async def fake_summarize(text: str) -> str:
         return "Summary of the roadmap discussion."
 
     monkeypatch.setattr(ai_client, "summarize", fake_summarize)
@@ -71,8 +73,8 @@ def test_summarize_happy_path(api_client, meeting, monkeypatch):
 
 
 @pytest.mark.django_db
-def test_summarize_failure_marks_summary_failed(api_client, meeting, monkeypatch):
-    async def failing_summarize(text):
+def test_summarize_failure_marks_summary_failed(api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def failing_summarize(text: str) -> str:
         raise RuntimeError("Anthropic API unavailable")
 
     monkeypatch.setattr(ai_client, "summarize", failing_summarize)
@@ -87,7 +89,7 @@ def test_summarize_failure_marks_summary_failed(api_client, meeting, monkeypatch
 
 
 @pytest.mark.django_db
-def test_create_meeting_missing_fields_returns_400(api_client):
+def test_create_meeting_missing_fields_returns_400(api_client: APIClient) -> None:
     response = api_client.post("/api/meetings/", {"title": ""})
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -96,7 +98,7 @@ def test_create_meeting_missing_fields_returns_400(api_client):
 
 
 @pytest.mark.django_db
-def test_add_note_missing_fields_returns_400(api_client, meeting):
+def test_add_note_missing_fields_returns_400(api_client: APIClient, meeting: Meeting) -> None:
     response = api_client.post(f"/api/meetings/{meeting.id}/notes/", {"author": ""})
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -105,7 +107,7 @@ def test_add_note_missing_fields_returns_400(api_client, meeting):
 
 
 @pytest.mark.django_db
-def test_notes_for_nonexistent_meeting_returns_404(api_client):
+def test_notes_for_nonexistent_meeting_returns_404(api_client: APIClient) -> None:
     response = api_client.post(
         "/api/meetings/999999/notes/", {"author": "Alice", "text": "Hi"}
     )
@@ -114,7 +116,7 @@ def test_notes_for_nonexistent_meeting_returns_404(api_client):
 
 
 @pytest.mark.django_db
-def test_summary_for_meeting_without_summary_returns_404(api_client, meeting):
+def test_summary_for_meeting_without_summary_returns_404(api_client: APIClient, meeting: Meeting) -> None:
     response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
 
     assert response.status_code == status.HTTP_404_NOT_FOUND

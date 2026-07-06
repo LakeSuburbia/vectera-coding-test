@@ -4,6 +4,7 @@ from asgiref.sync import async_to_sync
 from django.db.models import Count
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from .models import Meeting, Note, Summary
@@ -33,14 +34,14 @@ class MeetingViewSet(viewsets.ModelViewSet):
         url_path="notes",
         serializer_class=NoteSerializer,
     )
-    def notes(self, request, pk=None):
+    def notes(self, request: Request, pk=None) -> Response:
         meeting = self.get_object()
         if request.method == "POST":
             return self._add_note(request, meeting)
         elif request.method == "GET":
             return self._list_notes(request, meeting)
 
-    def _add_note(self, request, meeting):
+    def _add_note(self, request: Request, meeting: Meeting) -> Response:
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         note = Note.objects.create(
@@ -50,7 +51,7 @@ class MeetingViewSet(viewsets.ModelViewSet):
         )
         return Response(NoteSerializer(note).data, status=status.HTTP_201_CREATED)
 
-    def _list_notes(self, request, meeting):
+    def _list_notes(self, request: Request, meeting: Meeting) -> Response:
         notes = Note.objects.filter(meeting_id=meeting.id).order_by("created_at")
         page = self.paginate_queryset(notes)
         if page is not None:
@@ -65,7 +66,7 @@ class MeetingViewSet(viewsets.ModelViewSet):
         url_path="summarize",
         serializer_class=PostSummarySerializer,
     )
-    def summarize(self, request, pk=None):
+    def summarize(self, request: Request, pk=None) -> Response:
         meeting = self.get_object()
         summary = Summary.objects.initialize(meeting_id=meeting.id)
         notes = Note.objects.filter(meeting_id=meeting.id).order_by("created_at")
@@ -89,7 +90,7 @@ class MeetingViewSet(viewsets.ModelViewSet):
         url_path="summary",
         serializer_class=SummarySerializer,
     )
-    def get_summary(self, request, pk=None):
+    def get_summary(self, request: Request, pk=None) -> Response:
         meeting = self.get_object()
         try:
             summary = Summary.objects.get(meeting_id=meeting.id)
