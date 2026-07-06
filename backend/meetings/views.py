@@ -25,6 +25,7 @@ log = logging.getLogger(__name__)
 def _spawn(target: Callable[..., None], *args: Any) -> None:
     threading.Thread(target=target, args=args, daemon=True).start()
 
+
 @transaction.atomic(durable=True)
 def _run_summary_job(meeting_id: int) -> None:
     """Runs off-thread: fetches its own Summary/Note rows and closes its own connection."""
@@ -46,7 +47,11 @@ def health(request):
 
 
 class MeetingViewSet(viewsets.ModelViewSet):
-    queryset = Meeting.objects.all().annotate(note_count=Count("notes"))
+    queryset = (
+        Meeting.objects.all()
+        .select_related("summary")
+        .annotate(note_count=Count("notes"))
+    )
     serializer_class = MeetingSerializer
 
     @action(

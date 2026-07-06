@@ -42,6 +42,26 @@ def test_create_and_list_meetings(api_client: APIClient) -> None:
 
 
 @pytest.mark.django_db
+def test_list_meetings_query_count_is_independent_of_meeting_count(
+    api_client: APIClient, django_assert_num_queries
+) -> None:
+    for i in range(3):
+        meeting = Meeting.objects.create(
+            title=f"Meeting {i}", started_at="2026-07-01T10:00:00Z"
+        )
+        Summary.objects.initialize(meeting_id=meeting.id)
+
+    # 1 query for the pagination count, 1 for the page of meetings (summary
+    # joined via select_related). Without select_related this would grow by
+    # one extra query per meeting on the page.
+    with django_assert_num_queries(2):
+        response = api_client.get("/api/meetings/")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["count"] == 3
+
+
+@pytest.mark.django_db
 def test_add_and_list_notes_happy_path(api_client: APIClient, meeting: Meeting) -> None:
     add_response = api_client.post(
         f"/api/meetings/{meeting.id}/notes/",
