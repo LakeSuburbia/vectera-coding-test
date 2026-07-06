@@ -9,6 +9,9 @@ Briefly note:
 Overall Assumptions:
 - This is a dev project that is currently implemented in a way that is easy to debug, rather than a complete, production-safe implementation.
 
+Improvements for later:
+- Use a cached AI response if the meeting_id & note_count is the same as a former request.
+
 FRIDAY 03/07/2026
 Prep Work
 Time spent: 30'
@@ -36,3 +39,13 @@ Time spent: 2h
 - Use anthropic for a basic AI Summary tool.
     - If we would have multiple subscriptions, a more abstract implementation would make sense. For now, this will do.
     - I chose to not add fallback systems to the client, for when a call to the Anthropic API fails. But to just throw errors and let the caller handle these. In our case, we just want to set the status to failed, so we don't need more granular error handling.
+
+MONDAY 06/07/2028
+Front-end Development
+Time-spent: 1h
+
+- Vibe coded the main chunk of the front-end code for time efficiëncy & lack of Angular experience.
+    - This made a chronological commit history hard, so I went for a functional dependency order
+    - Used a single Claude Code agent setup from the CLI.
+- Added bootstrap to give the front-end a less dry 'HTML' look.
+- Changed white-space handling to pre-line for the summary overview, because newlines were being collapsed.
