@@ -15,7 +15,7 @@ services:
     build: ./backend
     command: /bin/sh -c './run-server.sh'
     env_file:
-      - ./backend/.env.example
+      - ./backend/.env
     environment:
       - DATABASE_URL=postgresql://app:app@db:5432/app
       - DJANGO_DEBUG=1
