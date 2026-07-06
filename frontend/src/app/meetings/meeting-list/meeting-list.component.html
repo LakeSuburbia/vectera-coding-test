@@ -1,0 +1,41 @@
+<section>
+  <h2>Meetings</h2>
+
+  <form class="inline-form" (ngSubmit)="createMeeting()" #form="ngForm">
+    <input type="text" name="title" placeholder="Title" [(ngModel)]="newMeeting.title" required />
+    <input type="datetime-local" name="started_at" [(ngModel)]="newMeeting.started_at" required />
+    <button type="submit" [disabled]="creating || form.invalid">Add meeting</button>
+  </form>
+  <p class="error" *ngIf="createError">{{ createError }}</p>
+
+  <p *ngIf="loading">Loading meetings...</p>
+  <p class="error" *ngIf="error">{{ error }}</p>
+
+  <table *ngIf="!loading && !error">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Started at</th>
+        <th>Notes</th>
+        <th>Summary</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let meeting of meetings">
+        <td><a [routerLink]="[meeting.id]">{{ meeting.title }}</a></td>
+        <td>{{ meeting.started_at | date: 'medium' }}</td>
+        <td>{{ meeting.note_count }}</td>
+        <td><span class="badge" [ngClass]="summaryBadge(meeting)">{{ summaryBadge(meeting) }}</span></td>
+      </tr>
+      <tr *ngIf="meetings.length === 0">
+        <td colspan="4">No meetings yet.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="pagination" *ngIf="!loading && !error">
+    <button (click)="previousPage()" [disabled]="!hasPrevious">Previous</button>
+    <span>Page {{ page }}</span>
+    <button (click)="nextPage()" [disabled]="!hasNext">Next</button>
+  </div>
+</section>
