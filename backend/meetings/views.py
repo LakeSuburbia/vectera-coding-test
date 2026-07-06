@@ -32,7 +32,6 @@ class MeetingViewSet(viewsets.ModelViewSet):
             author=serializer.validated_data["author"],
             text=serializer.validated_data["text"],
         )
-        log.info("Note added to meeting %s by %s", pk, note.author)
         return Response(NoteSerializer(note).data, status=status.HTTP_201_CREATED)
 
     def _list_notes(self, request, pk=None):

@@ -11,11 +11,19 @@ class Meeting(models.Model):
     class Meta:
         ordering = ["-started_at"]
 
+class NoteManager(models.Manager):
+    def create(self, meeting_id, author, text):
+        note = super().create(meeting_id=meeting_id, author=author, text=text)
+        log.info("Note added to meeting %s by %s", meeting_id, author)
+        return note
+
 class Note(models.Model):
     meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, related_name="notes")
     author = models.CharField(max_length=120)
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = NoteManager()
 
     class Meta:
         indexes = [

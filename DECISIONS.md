@@ -31,3 +31,5 @@ Time spent: 2h
 - Added a custom SummaryManager
     - Let's formalize & protect how we initialize Summaries.
     - Implicitly make Summary a state-machine by formalizing which actions are allowed.
+- Added a custom NoteManager
+    - This isn't really necessary, but I wanted to make this consistent with how we do this for the Summary model. All the info logging is done inside the scope of the model methods.
