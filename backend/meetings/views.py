@@ -40,9 +40,9 @@ class MeetingViewSet(viewsets.ModelViewSet):
         notes = Note.objects.filter(meeting_id=pk).order_by("created_at")
         page = self.paginate_queryset(notes)
         if page is not None:
-            serializer = NoteSerializer(page, many=True)
+            serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-        serializer = NoteSerializer(notes, many=True)
+        serializer = self.get_serializer(notes, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="summarize", serializer_class=PostSummarySerializer)
@@ -64,4 +64,4 @@ class MeetingViewSet(viewsets.ModelViewSet):
             summary = Summary.objects.get(meeting_id=pk)
         except Summary.DoesNotExist:
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        return Response({"detail": SummarySerializer(summary).data}, status=status.HTTP_200_OK)
+        return Response({"detail": self.get_serializer(summary).data}, status=status.HTTP_200_OK)
