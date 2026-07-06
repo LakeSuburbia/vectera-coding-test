@@ -7,11 +7,16 @@ from rest_framework.test import APIClient
 
 from meetings.models import Meeting, Note, Summary
 from meetings.services.ai import client as ai_client
-
+from meetings.tests.conftest import MockAIClient
 
 def _run_spawn_inline(self, target, *args) -> None:
     """Test stand-in for Summary._spawn: runs the job synchronously on the calling thread."""
     target(*args)
+
+def _mock_spawn() -> None:
+    """Patch Summary._spawn to run the job inline instead of spawning a thread."""
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(Summary, "_spawn", _run_spawn_inline)
 
 
 @pytest.mark.django_db
@@ -91,22 +96,21 @@ def test_add_and_list_notes_happy_path(api_client: APIClient, meeting: Meeting) 
 
     assert list_response.status_code == status.HTTP_200_OK
     assert list_response.data["count"] == 1
-    assert list_response.data["results"][0]["text"] == "Discussed the roadmap."
+    assert list_response.data["results"][0]["text"] == "This is a mocked summary."
 
 
 @pytest.mark.django_db
 def test_summarize_happy_path(
-    api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch
+    api_client: APIClient,
+    meeting: Meeting,
+    mock_ai_client: MockAIClient,
+
 ) -> None:
     Note.objects.create(
         meeting_id=meeting.id, author="Alice", text="Discussed the roadmap."
     )
 
-    async def fake_summarize(text: str) -> str:
-        return "Summary of the roadmap discussion."
-
-    monkeypatch.setattr(ai_client, "summarize", fake_summarize)
-    monkeypatch.setattr(Summary, "_spawn", _run_spawn_inline)
+    _mock_spawn()
 
     summarize_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
     assert summarize_response.status_code == status.HTTP_202_ACCEPTED
@@ -123,13 +127,13 @@ def test_summarize_happy_path(
 
 @pytest.mark.django_db
 def test_summarize_failure_marks_summary_failed(
-    api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch
+    api_client: APIClient,
+    meeting: Meeting,
+    mock_ai_client: MockAIClient,
 ) -> None:
-    async def failing_summarize(text: str) -> str:
-        raise RuntimeError("Anthropic API unavailable")
+    mock_ai_client.result = RuntimeError("Anthropic API unavailable")
 
-    monkeypatch.setattr(ai_client, "summarize", failing_summarize)
-    monkeypatch.setattr(Summary, "_spawn", _run_spawn_inline)
+    _mock_spawn()
 
     summarize_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
     assert summarize_response.status_code == status.HTTP_202_ACCEPTED
@@ -144,8 +148,8 @@ def test_summarize_failure_marks_summary_failed(
 def test_summarize_returns_409_when_job_already_running(
     api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Stub out _spawn so the job never actually runs and never clears
-    # is_running, simulating a still-in-flight job for the second request.
+    # Stub out _spawn so the job never actually runs and status stays
+    # RUNNING, simulating a still-in-flight job for the second request.
     monkeypatch.setattr(Summary, "_spawn", lambda self, target, *args: None)
 
     first_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
