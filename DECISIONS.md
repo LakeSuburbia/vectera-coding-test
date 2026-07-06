@@ -33,3 +33,6 @@ Time spent: 2h
     - Implicitly make Summary a state-machine by formalizing which actions are allowed.
 - Added a custom NoteManager
     - This isn't really necessary, but I wanted to make this consistent with how we do this for the Summary model. All the info logging is done inside the scope of the model methods.
+- Use anthropic for a basic AI Summary tool.
+    - If we would have multiple subscriptions, a more abstract implementation would make sense. For now, this will do.
+    - I chose to not add fallback systems to the client, for when a call to the Anthropic API fails. But to just throw errors and let the caller handle these. In our case, we just want to set the status to failed, so we don't need more granular error handling.

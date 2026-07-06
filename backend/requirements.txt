@@ -8,3 +8,5 @@ django-extensions>=4.0,<4.2
 pytest>=8.2,<9.0
 pytest-django>=4.9,<5.0
 pytest-cov>=5.0,<6.0
+
+anthropic
