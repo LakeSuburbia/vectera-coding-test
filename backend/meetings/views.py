@@ -14,28 +14,35 @@ def health(request):
     return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
 class MeetingViewSet(viewsets.ModelViewSet):
-    """
-    TODO: Implement:
-    - list with pagination (newest first)
-    - retrieve (include latest summary if any)
-    - create
-    """
     queryset = Meeting.objects.all().annotate(note_count=Count("notes"))
     serializer_class = MeetingSerializer
 
-    @action(detail=True, methods=["post"], url_path="notes")
-    def add_note(self, request, pk=None):
-        """
-        TODO: Validate and create a Note for this meeting.
-        """
-        return Response({"detail": "TODO: implement add_note"}, status=status.HTTP_501_NOT_IMPLEMENTED)
+    @action(detail=True, methods=["get", "post"], url_path="notes", serializer_class=NoteSerializer)
+    def notes(self, request, pk=None):
+        if request.method == "POST":
+            return self._add_note(request, pk)
+        elif request.method == "GET":
+            return self._list_notes(request, pk)
 
-    @action(detail=True, methods=["get"], url_path="notes")
-    def list_notes(self, request, pk=None):
-        """
-        TODO: Return paginated notes, ordered oldest..newest.
-        """
-        return Response({"detail": "TODO: implement list_notes"}, status=status.HTTP_501_NOT_IMPLEMENTED)
+    def _add_note(self, request, pk=None):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        note = Note.objects.create(
+            meeting_id=pk,
+            author=serializer.validated_data["author"],
+            text=serializer.validated_data["text"],
+        )
+        log.info("Note added to meeting %s by %s", pk, note.author)
+        return Response(NoteSerializer(note).data, status=status.HTTP_201_CREATED)
+
+    def _list_notes(self, request, pk=None):
+        notes = Note.objects.filter(meeting_id=pk).order_by("created_at")
+        page = self.paginate_queryset(notes)
+        if page is not None:
+            serializer = NoteSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = NoteSerializer(notes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="summarize")
     def summarize(self, request, pk=None):

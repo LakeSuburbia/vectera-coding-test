@@ -20,3 +20,11 @@ Time spent: 30'
     - "runserver" debugger -> to debug backend
     - Change pagination setting to "5" -> for easier testing / debugging
 - Decided to not continue with the assignment today, due to brain fog because I'm recovering from a concussion.
+
+MONDAY 06/07/2026
+Backend Development
+Time spent: 2h
+
+- Bundle both notes' endpoints under a single router
+    - Otherwise, this triggers a 'method not allowed' error, due to the 2 conflicting routers.
+    - Another solution would be to use a default view for the get method and add other views using get_notes.mapping.<method>. However, since we only distinguish between 2 methods in this case, I prefer the current setup.
