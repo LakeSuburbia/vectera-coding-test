@@ -9,9 +9,11 @@ from meetings.models import Meeting, Note, Summary
 from meetings.services.ai import client as ai_client
 from meetings.tests.conftest import MockAIClient
 
+
 def _run_spawn_inline(self, target, *args) -> None:
     """Test stand-in for Summary._spawn: runs the job synchronously on the calling thread."""
     target(*args)
+
 
 def _mock_spawn() -> None:
     """Patch Summary._spawn to run the job inline instead of spawning a thread."""
@@ -96,7 +98,7 @@ def test_add_and_list_notes_happy_path(api_client: APIClient, meeting: Meeting) 
 
     assert list_response.status_code == status.HTTP_200_OK
     assert list_response.data["count"] == 1
-    assert list_response.data["results"][0]["text"] == "This is a mocked summary."
+    assert list_response.data["results"][0]["text"] == "Discussed the roadmap."
 
 
 @pytest.mark.django_db
@@ -104,7 +106,6 @@ def test_summarize_happy_path(
     api_client: APIClient,
     meeting: Meeting,
     mock_ai_client: MockAIClient,
-
 ) -> None:
     Note.objects.create(
         meeting_id=meeting.id, author="Alice", text="Discussed the roadmap."
@@ -119,10 +120,7 @@ def test_summarize_happy_path(
 
     assert summary_response.status_code == status.HTTP_200_OK
     assert summary_response.data["detail"]["status"] == Summary.READY
-    assert (
-        summary_response.data["detail"]["content"]
-        == "Summary of the roadmap discussion."
-    )
+    assert summary_response.data["detail"]["content"] == mock_ai_client.result
 
 
 @pytest.mark.django_db
