@@ -55,9 +55,10 @@ class MeetingViewSet(viewsets.ModelViewSet):
         log.info("summarize_requested", extra={"meeting_id": pk})
         return Response({"detail": "TODO: implement summarize"}, status=status.HTTP_501_NOT_IMPLEMENTED)
 
-    @action(detail=True, methods=["get"], url_path="summary")
+    @action(detail=True, methods=["get"], url_path="summary", serializer_class=SummarySerializer)
     def get_summary(self, request, pk=None):
-        """
-        TODO: Return the summary or 404 if none.
-        """
-        return Response({"detail": "TODO: implement get_summary"}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        try:
+            summary = Summary.objects.get(meeting_id=pk)
+        except Summary.DoesNotExist:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": SummarySerializer(summary).data}, status=status.HTTP_200_OK)
