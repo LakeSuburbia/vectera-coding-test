@@ -1,3 +1,7 @@
 .badge {
   text-transform: capitalize;
 }
+
+.summary-content {
+  white-space: pre-line;
+}

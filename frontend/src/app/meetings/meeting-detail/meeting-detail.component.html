@@ -18,7 +18,7 @@
         Generating summary&hellip;
       </p>
       <p class="card-text text-danger mb-2" *ngIf="summary?.status === 'failed'">Summary generation failed.</p>
-      <p class="card-text mb-2" *ngIf="summary?.status === 'ready'">{{ summary?.content }}</p>
+      <p class="card-text mb-2 summary-content" *ngIf="summary?.status === 'ready'">{{ summary?.content }}</p>
 
       <button class="btn btn-primary" (click)="generateSummary()" [disabled]="triggeringSummary || polling">
         {{ summary?.status === 'ready' || summary?.status === 'failed' ? 'Regenerate summary' : 'Generate summary' }}
