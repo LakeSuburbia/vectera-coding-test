@@ -7,6 +7,11 @@ import { AppComponent } from './app.component';
 import { FormsModule } from '@angular/forms';
 
 const routes: Routes = [
+  { path: '', redirectTo: 'meetings', pathMatch: 'full' },
+  {
+    path: 'meetings',
+    loadChildren: () => import('./meetings/meetings.module').then((m) => m.MeetingsModule),
+  },
 ];
 
 @NgModule({

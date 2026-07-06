@@ -1,0 +1,43 @@
+<p *ngIf="loading">Loading meeting...</p>
+<p class="error" *ngIf="error">{{ error }}</p>
+
+<section *ngIf="meeting">
+  <a routerLink="/meetings">&larr; Back to meetings</a>
+  <h2>{{ meeting.title }}</h2>
+  <p>Started at: {{ meeting.started_at | date: 'medium' }}</p>
+
+  <h3>Summary</h3>
+  <div class="summary-panel">
+    <p *ngIf="!summary && !triggeringSummary">No summary yet.</p>
+    <p *ngIf="triggeringSummary || summary?.status === 'pending'">Generating summary&hellip;</p>
+    <p class="error" *ngIf="summary?.status === 'failed'">Summary generation failed.</p>
+    <p *ngIf="summary?.status === 'ready'">{{ summary?.content }}</p>
+
+    <button (click)="generateSummary()" [disabled]="triggeringSummary || polling">
+      {{ summary?.status === 'ready' || summary?.status === 'failed' ? 'Regenerate summary' : 'Generate summary' }}
+    </button>
+    <p class="error" *ngIf="summaryActionError">{{ summaryActionError }}</p>
+  </div>
+
+  <h3>Notes ({{ meeting.note_count }})</h3>
+  <form class="inline-form" (ngSubmit)="addNote()" #noteForm="ngForm">
+    <input type="text" name="author" placeholder="Your name" [(ngModel)]="newNote.author" required />
+    <textarea name="text" placeholder="Add a note..." [(ngModel)]="newNote.text" required></textarea>
+    <button type="submit" [disabled]="addingNote || noteForm.invalid">Add note</button>
+  </form>
+  <p class="error" *ngIf="addNoteError">{{ addNoteError }}</p>
+
+  <p *ngIf="notesLoading && notes.length === 0">Loading notes...</p>
+  <p class="error" *ngIf="notesError">{{ notesError }}</p>
+
+  <ul class="notes-feed">
+    <li *ngFor="let note of notes">
+      <strong>{{ note.author }}</strong>
+      <span class="timestamp">{{ note.created_at | date: 'short' }}</span>
+      <p>{{ note.text }}</p>
+    </li>
+    <li *ngIf="notes.length === 0 && !notesLoading">No notes yet.</li>
+  </ul>
+
+  <button *ngIf="notesHasNext" (click)="loadMoreNotes()" [disabled]="notesLoading">Load more notes</button>
+</section>
