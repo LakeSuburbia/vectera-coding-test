@@ -1,10 +1,18 @@
+import asyncio
+import threading
+
 import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from meetings import views
 from meetings.models import Meeting, Note, Summary
 from meetings.services.ai import client as ai_client
 
+
+def _run_spawn_inline(target, *args) -> None:
+    """Test stand-in for views._spawn: runs the job synchronously on the calling thread."""
+    target(*args)
 
 
 @pytest.mark.django_db
@@ -58,9 +66,10 @@ def test_summarize_happy_path(api_client: APIClient, meeting: Meeting, monkeypat
         return "Summary of the roadmap discussion."
 
     monkeypatch.setattr(ai_client, "summarize", fake_summarize)
+    monkeypatch.setattr(views, "_spawn", _run_spawn_inline)
 
     summarize_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
-    assert summarize_response.status_code == status.HTTP_200_OK
+    assert summarize_response.status_code == status.HTTP_202_ACCEPTED
 
     summary_response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
 
@@ -78,14 +87,51 @@ def test_summarize_failure_marks_summary_failed(api_client: APIClient, meeting: 
         raise RuntimeError("Anthropic API unavailable")
 
     monkeypatch.setattr(ai_client, "summarize", failing_summarize)
+    monkeypatch.setattr(views, "_spawn", _run_spawn_inline)
 
     summarize_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
-    assert summarize_response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert summarize_response.status_code == status.HTTP_202_ACCEPTED
 
     summary_response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
 
     assert summary_response.status_code == status.HTTP_200_OK
     assert summary_response.data["detail"]["status"] == Summary.FAILED
+
+
+@pytest.mark.django_db(transaction=True)
+def test_summarize_runs_in_background_and_reports_pending_until_complete(
+    api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    started = threading.Event()
+    release = threading.Event()
+    threads: list[threading.Thread] = []
+
+    def tracking_spawn(target, *args) -> None:
+        thread = threading.Thread(target=target, args=args, daemon=True)
+        threads.append(thread)
+        thread.start()
+
+    async def slow_summarize(text: str) -> str:
+        started.set()
+        await asyncio.get_event_loop().run_in_executor(None, release.wait)
+        return "Async summary."
+
+    monkeypatch.setattr(views, "_spawn", tracking_spawn)
+    monkeypatch.setattr(ai_client, "summarize", slow_summarize)
+
+    summarize_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
+    assert summarize_response.status_code == status.HTTP_202_ACCEPTED
+
+    assert started.wait(timeout=2), "background job never started"
+    pending_response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
+    assert pending_response.data["detail"]["status"] == Summary.PENDING
+
+    release.set()
+    threads[0].join(timeout=2)
+
+    ready_response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
+    assert ready_response.data["detail"]["status"] == Summary.READY
+    assert ready_response.data["detail"]["content"] == "Async summary."
 
 
 @pytest.mark.django_db

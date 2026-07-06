@@ -1,6 +1,9 @@
 import logging
+import threading
+from typing import Any, Callable
 
 from asgiref.sync import async_to_sync
+from django.db import connection
 from django.db.models import Count
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
@@ -17,6 +20,24 @@ from .serializers import (
 from .services.ai import client as ai_client
 
 log = logging.getLogger(__name__)
+
+
+def _spawn(target: Callable[..., None], *args: Any) -> None:
+    threading.Thread(target=target, args=args, daemon=True).start()
+
+
+def _run_summary_job(meeting_id: int) -> None:
+    """Runs off-thread: fetches its own Summary/Note rows and closes its own connection."""
+    summary = Summary.objects.get(meeting_id=meeting_id)
+    notes = Note.objects.filter(meeting_id=meeting_id).order_by("created_at")
+    concatenated_notes = "\n".join(note.text for note in notes)
+    try:
+        content = async_to_sync(ai_client.summarize)(concatenated_notes)
+        summary.write(content)
+    except Exception as e:
+        summary.fail(e)
+    finally:
+        connection.close()
 
 
 @api_view(["GET"])
@@ -68,21 +89,14 @@ class MeetingViewSet(viewsets.ModelViewSet):
     )
     def summarize(self, request: Request, pk=None) -> Response:
         meeting = self.get_object()
-        summary = Summary.objects.initialize(meeting_id=meeting.id)
-        notes = Note.objects.filter(meeting_id=meeting.id).order_by("created_at")
-        concatenated_notes = "\n".join(note.text for note in notes)
-        try:
-            content = async_to_sync(ai_client.summarize)(concatenated_notes)
-            summary.write(content)
-            return Response(
-                {"detail": "Summary created successfully."}, status=status.HTTP_200_OK
-            )
-        except Exception as e:
-            summary.fail(e)
-            return Response(
-                {"detail": "Summary creation failed."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        Summary.objects.initialize(meeting_id=meeting.id)
+        note_count = Note.objects.filter(meeting_id=meeting.id).count()
+        log.info("Summary requested for meeting %s (%s notes)", meeting.id, note_count)
+        _spawn(_run_summary_job, meeting.id)
+        return Response(
+            {"detail": "Summary generation started."},
+            status=status.HTTP_202_ACCEPTED,
+        )
 
     @action(
         detail=True,
