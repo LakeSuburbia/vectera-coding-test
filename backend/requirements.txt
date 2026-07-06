@@ -9,4 +9,7 @@ pytest>=8.2,<9.0
 pytest-django>=4.9,<5.0
 pytest-cov>=5.0,<6.0
 
+black>=24.0,<25.0
+isort>=5.13,<6.0
+
 anthropic
