@@ -21,23 +21,24 @@ class MeetingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get", "post"], url_path="notes", serializer_class=NoteSerializer)
     def notes(self, request, pk=None):
+        meeting = self.get_object()
         if request.method == "POST":
-            return self._add_note(request, pk)
+            return self._add_note(request, meeting)
         elif request.method == "GET":
-            return self._list_notes(request, pk)
+            return self._list_notes(request, meeting)
 
-    def _add_note(self, request, pk=None):
+    def _add_note(self, request, meeting):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         note = Note.objects.create(
-            meeting_id=pk,
+            meeting_id=meeting.id,
             author=serializer.validated_data["author"],
             text=serializer.validated_data["text"],
         )
         return Response(NoteSerializer(note).data, status=status.HTTP_201_CREATED)
 
-    def _list_notes(self, request, pk=None):
-        notes = Note.objects.filter(meeting_id=pk).order_by("created_at")
+    def _list_notes(self, request, meeting):
+        notes = Note.objects.filter(meeting_id=meeting.id).order_by("created_at")
         page = self.paginate_queryset(notes)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -47,8 +48,9 @@ class MeetingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="summarize", serializer_class=PostSummarySerializer)
     def summarize(self, request, pk=None):
-        summary = Summary.objects.initialize(meeting_id=pk)
-        notes = Note.objects.filter(meeting_id=pk).order_by("created_at")
+        meeting = self.get_object()
+        summary = Summary.objects.initialize(meeting_id=meeting.id)
+        notes = Note.objects.filter(meeting_id=meeting.id).order_by("created_at")
         concatenated_notes = "\n".join(note.text for note in notes)
         try:
             content = async_to_sync(ai_client.summarize)(concatenated_notes)
@@ -60,8 +62,9 @@ class MeetingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="summary", serializer_class=SummarySerializer)
     def get_summary(self, request, pk=None):
+        meeting = self.get_object()
         try:
-            summary = Summary.objects.get(meeting_id=pk)
+            summary = Summary.objects.get(meeting_id=meeting.id)
         except Summary.DoesNotExist:
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response({"detail": self.get_serializer(summary).data}, status=status.HTTP_200_OK)
