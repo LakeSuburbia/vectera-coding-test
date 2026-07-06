@@ -64,7 +64,10 @@ def test_summarize_happy_path(api_client, meeting, monkeypatch):
 
     assert summary_response.status_code == status.HTTP_200_OK
     assert summary_response.data["detail"]["status"] == Summary.READY
-    assert summary_response.data["detail"]["content"] == "Summary of the roadmap discussion."
+    assert (
+        summary_response.data["detail"]["content"]
+        == "Summary of the roadmap discussion."
+    )
 
 
 @pytest.mark.django_db

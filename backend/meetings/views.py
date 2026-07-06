@@ -1,25 +1,38 @@
 import logging
-from django.db.models import Count
-from rest_framework import status, viewsets
-from rest_framework.decorators import api_view, action
-from rest_framework.response import Response
 
 from asgiref.sync import async_to_sync
+from django.db.models import Count
+from rest_framework import status, viewsets
+from rest_framework.decorators import action, api_view
+from rest_framework.response import Response
+
 from .models import Meeting, Note, Summary
-from .serializers import MeetingSerializer, NoteSerializer, SummarySerializer, PostSummarySerializer
+from .serializers import (
+    MeetingSerializer,
+    NoteSerializer,
+    PostSummarySerializer,
+    SummarySerializer,
+)
 from .services.ai import client as ai_client
 
 log = logging.getLogger(__name__)
+
 
 @api_view(["GET"])
 def health(request):
     return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
+
 class MeetingViewSet(viewsets.ModelViewSet):
     queryset = Meeting.objects.all().annotate(note_count=Count("notes"))
     serializer_class = MeetingSerializer
 
-    @action(detail=True, methods=["get", "post"], url_path="notes", serializer_class=NoteSerializer)
+    @action(
+        detail=True,
+        methods=["get", "post"],
+        url_path="notes",
+        serializer_class=NoteSerializer,
+    )
     def notes(self, request, pk=None):
         meeting = self.get_object()
         if request.method == "POST":
@@ -46,7 +59,12 @@ class MeetingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(notes, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=["post"], url_path="summarize", serializer_class=PostSummarySerializer)
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="summarize",
+        serializer_class=PostSummarySerializer,
+    )
     def summarize(self, request, pk=None):
         meeting = self.get_object()
         summary = Summary.objects.initialize(meeting_id=meeting.id)
@@ -55,16 +73,28 @@ class MeetingViewSet(viewsets.ModelViewSet):
         try:
             content = async_to_sync(ai_client.summarize)(concatenated_notes)
             summary.write(content)
-            return Response({"detail": "Summary created successfully."}, status=status.HTTP_200_OK)
+            return Response(
+                {"detail": "Summary created successfully."}, status=status.HTTP_200_OK
+            )
         except Exception as e:
             summary.fail(e)
-            return Response({"detail": "Summary creation failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
+            return Response(
+                {"detail": "Summary creation failed."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
-    @action(detail=True, methods=["get"], url_path="summary", serializer_class=SummarySerializer)
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="summary",
+        serializer_class=SummarySerializer,
+    )
     def get_summary(self, request, pk=None):
         meeting = self.get_object()
         try:
             summary = Summary.objects.get(meeting_id=meeting.id)
         except Summary.DoesNotExist:
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        return Response({"detail": self.get_serializer(summary).data}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": self.get_serializer(summary).data}, status=status.HTTP_200_OK
+        )

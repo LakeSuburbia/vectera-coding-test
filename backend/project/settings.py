@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -18,7 +19,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "meetings",
-    "django_extensions"
+    "django_extensions",
 ]
 
 MIDDLEWARE = [

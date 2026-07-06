@@ -11,4 +11,6 @@ def api_client():
 
 @pytest.fixture
 def meeting(db):
-    return Meeting.objects.create(title="Sprint planning", started_at="2026-07-01T10:00:00Z")
+    return Meeting.objects.create(
+        title="Sprint planning", started_at="2026-07-01T10:00:00Z"
+    )

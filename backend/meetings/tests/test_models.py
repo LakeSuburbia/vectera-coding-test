@@ -6,7 +6,9 @@ from meetings.models import Meeting, Note, Summary
 @pytest.mark.django_db
 def test_meetings_ordering(meeting):
     # The meetings should be ordered by started_at descending by default
-    old_meeting = Meeting.objects.create(title="Old meeting", started_at="1900-01-01T10:00:00Z")
+    old_meeting = Meeting.objects.create(
+        title="Old meeting", started_at="1900-01-01T10:00:00Z"
+    )
     assert list(Meeting.objects.all()) == [meeting, old_meeting]
 
 
@@ -38,7 +40,9 @@ def test_summary_initialize_is_idempotent_per_meeting(meeting):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("content", ["Discussed the roadmap.", "A" * 50000], ids=["short", "long"])
+@pytest.mark.parametrize(
+    "content", ["Discussed the roadmap.", "A" * 50000], ids=["short", "long"]
+)
 def test_summary_write_sets_ready_status_with_content(meeting, content):
     summary = Summary.objects.initialize(meeting_id=meeting.id)
 
