@@ -76,6 +76,8 @@ class Summary(models.Model):
         self.save()
 
     def fail(self, exception=None):
+        if not self.status == Summary.PENDING:
+            raise ValueError("Summary is not in a pending state and cannot be marked as failed.")
         self.status = Summary.FAILED
         log.info("Summary failed for meeting %s", self.meeting)
         if exception:
