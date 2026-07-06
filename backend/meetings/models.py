@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import logging
+import threading
+from typing import Any, Callable
 
-from django.db import models
+from asgiref.sync import async_to_sync
+from django.db import connection, models, transaction
+
+from .services.ai import client as ai_client
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +74,15 @@ class Summary(models.Model):
     class Meta:
         ordering = ["-updated_at"]
 
+    def start(self) -> None:
+        if self.status != Summary.PENDING:
+            raise ValueError("Summary is not in a pending state and cannot be started.")
+        note_count = Note.objects.filter(meeting_id=self.meeting).count()
+        log.info(
+            "Summary requested for meeting %s (%s notes)", self.meeting, note_count
+        )
+        self._spawn(self._run_summary_job, self.meeting_id)
+
     def write(self, content: str) -> None:
         if self.status == Summary.READY:
             raise ValueError("Summary has been finalized and cannot be modified.")
@@ -98,3 +112,22 @@ class Summary(models.Model):
                 exception,
             )
         self.save()
+
+    def _spawn(self, target: Callable[..., None], *args: Any) -> None:
+        threading.Thread(target=target, args=args, daemon=True).start()
+
+    def _run_summary_job(self, meeting_id: int) -> None:
+        try:
+            with transaction.atomic(durable=True):
+                summary = Summary.objects.select_for_update().get(meeting_id=meeting_id)
+                notes = Note.objects.filter(meeting_id=meeting_id).order_by(
+                    "created_at"
+                )
+                concatenated_notes = "\n".join(note.text for note in notes)
+                try:
+                    content = async_to_sync(ai_client.summarize)(concatenated_notes)
+                    summary.write(content)
+                except Exception as e:
+                    summary.fail(e)
+        finally:
+            connection.close()

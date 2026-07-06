@@ -5,13 +5,12 @@ import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from meetings import views
 from meetings.models import Meeting, Note, Summary
 from meetings.services.ai import client as ai_client
 
 
-def _run_spawn_inline(target, *args) -> None:
-    """Test stand-in for views._spawn: runs the job synchronously on the calling thread."""
+def _run_spawn_inline(self, target, *args) -> None:
+    """Test stand-in for Summary._spawn: runs the job synchronously on the calling thread."""
     target(*args)
 
 
@@ -79,14 +78,18 @@ def test_add_and_list_notes_happy_path(api_client: APIClient, meeting: Meeting) 
 
 
 @pytest.mark.django_db
-def test_summarize_happy_path(api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch) -> None:
-    Note.objects.create(meeting_id=meeting.id, author="Alice", text="Discussed the roadmap.")
+def test_summarize_happy_path(
+    api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    Note.objects.create(
+        meeting_id=meeting.id, author="Alice", text="Discussed the roadmap."
+    )
 
     async def fake_summarize(text: str) -> str:
         return "Summary of the roadmap discussion."
 
     monkeypatch.setattr(ai_client, "summarize", fake_summarize)
-    monkeypatch.setattr(views, "_spawn", _run_spawn_inline)
+    monkeypatch.setattr(Summary, "_spawn", _run_spawn_inline)
 
     summarize_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
     assert summarize_response.status_code == status.HTTP_202_ACCEPTED
@@ -102,12 +105,14 @@ def test_summarize_happy_path(api_client: APIClient, meeting: Meeting, monkeypat
 
 
 @pytest.mark.django_db
-def test_summarize_failure_marks_summary_failed(api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_summarize_failure_marks_summary_failed(
+    api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch
+) -> None:
     async def failing_summarize(text: str) -> str:
         raise RuntimeError("Anthropic API unavailable")
 
     monkeypatch.setattr(ai_client, "summarize", failing_summarize)
-    monkeypatch.setattr(views, "_spawn", _run_spawn_inline)
+    monkeypatch.setattr(Summary, "_spawn", _run_spawn_inline)
 
     summarize_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
     assert summarize_response.status_code == status.HTTP_202_ACCEPTED
@@ -126,7 +131,7 @@ def test_summarize_runs_in_background_and_reports_pending_until_complete(
     release = threading.Event()
     threads: list[threading.Thread] = []
 
-    def tracking_spawn(target, *args) -> None:
+    def tracking_spawn(self, target, *args) -> None:
         thread = threading.Thread(target=target, args=args, daemon=True)
         threads.append(thread)
         thread.start()
@@ -136,7 +141,7 @@ def test_summarize_runs_in_background_and_reports_pending_until_complete(
         await asyncio.get_event_loop().run_in_executor(None, release.wait)
         return "Async summary."
 
-    monkeypatch.setattr(views, "_spawn", tracking_spawn)
+    monkeypatch.setattr(Summary, "_spawn", tracking_spawn)
     monkeypatch.setattr(ai_client, "summarize", slow_summarize)
 
     summarize_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
@@ -164,7 +169,9 @@ def test_create_meeting_missing_fields_returns_400(api_client: APIClient) -> Non
 
 
 @pytest.mark.django_db
-def test_add_note_missing_fields_returns_400(api_client: APIClient, meeting: Meeting) -> None:
+def test_add_note_missing_fields_returns_400(
+    api_client: APIClient, meeting: Meeting
+) -> None:
     response = api_client.post(f"/api/meetings/{meeting.id}/notes/", {"author": ""})
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -182,7 +189,9 @@ def test_notes_for_nonexistent_meeting_returns_404(api_client: APIClient) -> Non
 
 
 @pytest.mark.django_db
-def test_summary_for_meeting_without_summary_returns_404(api_client: APIClient, meeting: Meeting) -> None:
+def test_summary_for_meeting_without_summary_returns_404(
+    api_client: APIClient, meeting: Meeting
+) -> None:
     response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
 
     assert response.status_code == status.HTTP_404_NOT_FOUND

@@ -43,7 +43,9 @@ def test_summary_initialize_is_idempotent_per_meeting(meeting):
 @pytest.mark.parametrize(
     "content", ["Discussed the roadmap.", "A" * 50000], ids=["short", "long"]
 )
-def test_summary_write_sets_ready_status_with_content(meeting: Meeting, content: str) -> None:
+def test_summary_write_sets_ready_status_with_content(
+    meeting: Meeting, content: str
+) -> None:
     summary = Summary.objects.initialize(meeting_id=meeting.id)
 
     summary.write(content)
@@ -55,7 +57,9 @@ def test_summary_write_sets_ready_status_with_content(meeting: Meeting, content:
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("content", ["", None])
-def test_summary_write_marks_failed_when_content_is_empty(meeting: Meeting, content: str) -> None:
+def test_summary_write_marks_failed_when_content_is_empty(
+    meeting: Meeting, content: str
+) -> None:
     summary = Summary.objects.initialize(meeting_id=meeting.id)
 
     summary.write(content)
