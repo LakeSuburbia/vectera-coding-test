@@ -38,21 +38,23 @@ def test_summary_initialize_is_idempotent_per_meeting(meeting):
 
 
 @pytest.mark.django_db
-def test_summary_write_sets_ready_status_with_content(meeting):
+@pytest.mark.parametrize("content", ["Discussed the roadmap.", "A" * 50000], ids=["short", "long"])
+def test_summary_write_sets_ready_status_with_content(meeting, content):
     summary = Summary.objects.initialize(meeting_id=meeting.id)
 
-    summary.write("Discussed the roadmap.")
+    summary.write(content)
     summary.refresh_from_db()
 
     assert summary.status == Summary.READY
-    assert summary.content == "Discussed the roadmap."
+    assert summary.content == content
 
 
 @pytest.mark.django_db
-def test_summary_write_marks_failed_when_content_is_empty(meeting):
+@pytest.mark.parametrize("content", ["", None])
+def test_summary_write_marks_failed_when_content_is_empty(meeting, content):
     summary = Summary.objects.initialize(meeting_id=meeting.id)
 
-    summary.write("")
+    summary.write(content)
     summary.refresh_from_db()
 
     assert summary.status == Summary.FAILED
@@ -68,10 +70,11 @@ def test_summary_write_raises_once_ready(meeting):
 
 
 @pytest.mark.django_db
-def test_summary_fail_sets_failed_status(meeting):
+@pytest.mark.parametrize("exception", [None, Exception("boom")])
+def test_summary_fail_sets_failed_status(meeting, exception):
     summary = Summary.objects.initialize(meeting_id=meeting.id)
 
-    summary.fail(Exception("boom"))
+    summary.fail(exception)
     summary.refresh_from_db()
 
     assert summary.status == Summary.FAILED
