@@ -108,6 +108,21 @@ describe('MeetingDetailComponent', () => {
     expect(component.polling).toBe(false);
   }));
 
+  it('starts polling automatically when the meeting already has a running summary', fakeAsync(() => {
+    meetingServiceSpy.getMeeting.and.returnValue(
+      of(buildMeeting({ latest_summary: buildSummary({ status: 'running' }) }))
+    );
+    meetingServiceSpy.getSummary.and.returnValue(of(buildSummary({ status: 'ready', content: 'Done' })));
+
+    component.meetingId = 5;
+    component.loadMeeting();
+    tick();
+
+    expect(meetingServiceSpy.getSummary).toHaveBeenCalledWith(5);
+    expect(component.summary?.status).toBe('ready');
+    expect(component.polling).toBe(false);
+  }));
+
   describe('addNote', () => {
     it('does not call the service when required fields are missing', () => {
       component.newNote = { author: '', text: '' };
@@ -169,7 +184,7 @@ describe('MeetingDetailComponent', () => {
       component.meetingId = 5;
       meetingServiceSpy.generateSummary.and.returnValue(of({ detail: 'Summary created successfully.' }));
       meetingServiceSpy.getSummary.and.returnValues(
-        of(buildSummary({ status: 'pending' })),
+        of(buildSummary({ status: 'running' })),
         of(buildSummary({ status: 'ready', content: 'All done' }))
       );
 

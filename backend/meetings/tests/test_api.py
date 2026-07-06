@@ -140,8 +140,23 @@ def test_summarize_failure_marks_summary_failed(
     assert summary_response.data["detail"]["status"] == Summary.FAILED
 
 
+@pytest.mark.django_db
+def test_summarize_returns_409_when_job_already_running(
+    api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Stub out _spawn so the job never actually runs and never clears
+    # is_running, simulating a still-in-flight job for the second request.
+    monkeypatch.setattr(Summary, "_spawn", lambda self, target, *args: None)
+
+    first_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
+    assert first_response.status_code == status.HTTP_202_ACCEPTED
+
+    second_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
+    assert second_response.status_code == status.HTTP_409_CONFLICT
+
+
 @pytest.mark.django_db(transaction=True)
-def test_summarize_runs_in_background_and_reports_pending_until_complete(
+def test_summarize_runs_in_background_and_reports_running_until_complete(
     api_client: APIClient, meeting: Meeting, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     started = threading.Event()
@@ -165,8 +180,8 @@ def test_summarize_runs_in_background_and_reports_pending_until_complete(
     assert summarize_response.status_code == status.HTTP_202_ACCEPTED
 
     assert started.wait(timeout=2), "background job never started"
-    pending_response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
-    assert pending_response.data["detail"]["status"] == Summary.PENDING
+    running_response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
+    assert running_response.data["detail"]["status"] == Summary.RUNNING
 
     release.set()
     threads[0].join(timeout=2)

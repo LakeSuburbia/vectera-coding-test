@@ -5,6 +5,7 @@ describe('summaryBadgeClass', () => {
   const cases: Array<{ status: SummaryStatus | 'none'; expected: string }> = [
     { status: 'ready', expected: 'bg-success' },
     { status: 'pending', expected: 'bg-warning text-dark' },
+    { status: 'running', expected: 'bg-warning text-dark' },
     { status: 'failed', expected: 'bg-danger' },
     { status: 'none', expected: 'bg-secondary' },
   ];

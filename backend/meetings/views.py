@@ -71,9 +71,14 @@ class MeetingViewSet(viewsets.ModelViewSet):
     )
     def summarize(self, request: Request, pk=None) -> Response:
         meeting = self.get_object()
+        summary = Summary.objects.initialize(meeting_id=meeting.id)
         try:
-            summary = Summary.objects.initialize(meeting_id=meeting.id)
             summary.start()
+        except Summary.AlreadyRunning:
+            return Response(
+                {"detail": "Summary generation is already in progress."},
+                status=status.HTTP_409_CONFLICT,
+            )
         except Exception as e:
             log.error("Error starting summary for meeting %s: %s", meeting.id, e)
             return Response(

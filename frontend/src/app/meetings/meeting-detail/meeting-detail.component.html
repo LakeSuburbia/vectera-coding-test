@@ -13,7 +13,12 @@
     </div>
     <div class="card-body">
       <p class="card-text text-muted mb-2" *ngIf="!summary && !triggeringSummary">No summary yet.</p>
-      <p class="card-text mb-2" *ngIf="triggeringSummary || summary?.status === 'pending'">
+      <p
+        class="card-text mb-2"
+        *ngIf="
+          triggeringSummary || summary?.status === 'pending' || summary?.status === 'running'
+        "
+      >
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         Generating summary&hellip;
       </p>

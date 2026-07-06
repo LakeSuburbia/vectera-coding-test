@@ -1,4 +1,4 @@
-export type SummaryStatus = 'pending' | 'ready' | 'failed';
+export type SummaryStatus = 'pending' | 'running' | 'ready' | 'failed';
 
 export interface Summary {
   id: number;

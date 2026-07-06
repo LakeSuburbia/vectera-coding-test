@@ -143,6 +143,11 @@ describe('MeetingListComponent', () => {
         expectedClass: 'bg-warning text-dark',
       },
       {
+        latestSummary: { id: 1, content: '', status: 'running', created_at: '', updated_at: '' },
+        expectedStatus: 'running',
+        expectedClass: 'bg-warning text-dark',
+      },
+      {
         latestSummary: { id: 1, content: 'x', status: 'ready', created_at: '', updated_at: '' },
         expectedStatus: 'ready',
         expectedClass: 'bg-success',

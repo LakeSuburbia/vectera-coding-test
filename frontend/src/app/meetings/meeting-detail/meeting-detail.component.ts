@@ -67,7 +67,7 @@ export class MeetingDetailComponent implements OnInit, OnDestroy {
         this.meeting = meeting;
         this.summary = meeting.latest_summary;
         this.loading = false;
-        if (this.summary?.status === 'pending') {
+        if (this.summary?.status === 'pending' || this.summary?.status === 'running') {
           this.pollSummary();
         }
       },
@@ -140,7 +140,10 @@ export class MeetingDetailComponent implements OnInit, OnDestroy {
         startWith(0),
         switchMap(() => this.meetingService.getSummary(this.meetingId)),
         tap((summary) => (this.summary = summary)),
-        takeWhile((summary) => summary.status === 'pending', true)
+        takeWhile(
+          (summary) => summary.status === 'pending' || summary.status === 'running',
+          true
+        )
       )
       .subscribe({
         error: () => {

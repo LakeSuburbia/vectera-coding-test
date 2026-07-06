@@ -45,18 +45,23 @@ class Note(models.Model):
 
 class SummaryManager(models.Manager):
     def initialize(self, meeting_id: int) -> "Summary":
-        summary, _ = self.update_or_create(
+        summary, created = self.get_or_create(
             meeting_id=meeting_id, defaults={"status": Summary.PENDING}
         )
+        if not created and summary.status in (Summary.READY, Summary.FAILED):
+            summary.status = Summary.PENDING
+            summary.save(update_fields=["status", "updated_at"])
         return summary
 
 
 class Summary(models.Model):
     PENDING = "pending"
+    RUNNING = "running"
     READY = "ready"
     FAILED = "failed"
     STATUS_CHOICES = [
         (PENDING, "pending"),
+        (RUNNING, "running"),
         (READY, "ready"),
         (FAILED, "failed"),
     ]
@@ -74,41 +79,52 @@ class Summary(models.Model):
     class Meta:
         ordering = ["-updated_at"]
 
+    class AlreadyRunning(Exception):
+        """Raised when a job is already in flight for this Summary."""
+
     def start(self) -> None:
+        if self.status == Summary.RUNNING:
+            raise Summary.AlreadyRunning(
+                f"A summary job is already running for meeting {self.meeting_id}."
+            )
         if self.status != Summary.PENDING:
             raise ValueError("Summary is not in a pending state and cannot be started.")
-        note_count = Note.objects.filter(meeting_id=self.meeting).count()
+
+        self.status = Summary.RUNNING
+        self.save(update_fields=["status", "updated_at"])
+
+        note_count = Note.objects.filter(meeting_id=self.meeting_id).count()
         log.info(
-            "Summary requested for meeting %s (%s notes)", self.meeting, note_count
+            "Summary requested for meeting %s (%s notes)", self.meeting_id, note_count
         )
         self._spawn(self._run_summary_job, self.meeting_id)
 
     def write(self, content: str) -> None:
-        if self.status == Summary.READY:
-            raise ValueError("Summary has been finalized and cannot be modified.")
+        if self.status != Summary.RUNNING:
+            raise ValueError("Summary is not running and cannot be written to.")
         if content:
             self.content = content
             self.status = Summary.READY
-            log.info("Summary written for meeting %s", self.meeting)
+            log.info("Summary written for meeting %s", self.meeting_id)
         else:
             self.status = Summary.FAILED
             log.warning(
                 "Summary marked as failed for meeting %s due to empty content",
-                self.meeting,
+                self.meeting_id,
             )
         self.save()
 
     def fail(self, exception: Exception | None = None) -> None:
-        if not self.status == Summary.PENDING:
+        if self.status != Summary.RUNNING:
             raise ValueError(
-                "Summary is not in a pending state and cannot be marked as failed."
+                "Summary is not in a running state and cannot be marked as failed."
             )
         self.status = Summary.FAILED
-        log.info("Summary failed for meeting %s", self.meeting)
+        log.info("Summary failed for meeting %s", self.meeting_id)
         if exception:
             log.exception(
                 "Exception occurred while processing summary for meeting %s: %s",
-                self.meeting,
+                self.meeting_id,
                 exception,
             )
         self.save()
@@ -120,11 +136,11 @@ class Summary(models.Model):
         try:
             with transaction.atomic(durable=True):
                 summary = Summary.objects.select_for_update().get(meeting_id=meeting_id)
-                notes = Note.objects.filter(meeting_id=meeting_id).order_by(
-                    "created_at"
-                )
-                concatenated_notes = "\n".join(note.text for note in notes)
                 try:
+                    notes = Note.objects.filter(meeting_id=meeting_id).order_by(
+                        "created_at"
+                    )
+                    concatenated_notes = "\n".join(note.text for note in notes)
                     content = async_to_sync(ai_client.summarize)(concatenated_notes)
                     summary.write(content)
                 except Exception as e:
