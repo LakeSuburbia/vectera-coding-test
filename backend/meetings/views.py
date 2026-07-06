@@ -4,8 +4,10 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
 
+from asgiref.sync import async_to_sync
 from .models import Meeting, Note, Summary
-from .serializers import MeetingSerializer, NoteSerializer, SummarySerializer
+from .serializers import MeetingSerializer, NoteSerializer, SummarySerializer, PostSummarySerializer
+from .services.ai import client as ai_client
 
 log = logging.getLogger(__name__)
 
@@ -43,17 +45,18 @@ class MeetingViewSet(viewsets.ModelViewSet):
         serializer = NoteSerializer(notes, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=["post"], url_path="summarize")
+    @action(detail=True, methods=["post"], url_path="summarize", serializer_class=PostSummarySerializer)
     def summarize(self, request, pk=None):
-        """
-        TODO:
-        - Create or update a Summary with status 'pending'
-        - Simulate async job: concatenate notes, call services.ai.summarize, then set 'ready'/'failed'
-        - Log meeting_id and note_count
-        - Return 202 Accepted
-        """
-        log.info("summarize_requested", extra={"meeting_id": pk})
-        return Response({"detail": "TODO: implement summarize"}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        summary = Summary.objects.initialize(meeting_id=pk)
+        notes = Note.objects.filter(meeting_id=pk).order_by("created_at")
+        concatenated_notes = "\n".join(note.text for note in notes)
+        try:
+            content = async_to_sync(ai_client.summarize)(concatenated_notes)
+            summary.write(content)
+            return Response({"detail": "Summary created successfully."}, status=status.HTTP_200_OK)
+        except Exception as e:
+            summary.fail(e)
+            return Response({"detail": "Summary creation failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
 
     @action(detail=True, methods=["get"], url_path="summary", serializer_class=SummarySerializer)
     def get_summary(self, request, pk=None):
