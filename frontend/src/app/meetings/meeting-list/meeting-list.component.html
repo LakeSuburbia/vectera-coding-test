@@ -1,17 +1,25 @@
 <section>
-  <h2>Meetings</h2>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Meetings</h2>
+  </div>
 
-  <form class="inline-form" (ngSubmit)="createMeeting()" #form="ngForm">
-    <input type="text" name="title" placeholder="Title" [(ngModel)]="newMeeting.title" required />
-    <input type="datetime-local" name="started_at" [(ngModel)]="newMeeting.started_at" required />
-    <button type="submit" [disabled]="creating || form.invalid">Add meeting</button>
+  <form class="row g-2 align-items-center mb-4" (ngSubmit)="createMeeting()" #form="ngForm">
+    <div class="col-auto">
+      <input type="text" class="form-control" name="title" placeholder="Title" [(ngModel)]="newMeeting.title" required />
+    </div>
+    <div class="col-auto">
+      <input type="datetime-local" class="form-control" name="started_at" [(ngModel)]="newMeeting.started_at" required />
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-primary" [disabled]="creating || form.invalid">Add meeting</button>
+    </div>
   </form>
-  <p class="error" *ngIf="createError">{{ createError }}</p>
+  <div class="alert alert-danger" role="alert" *ngIf="createError">{{ createError }}</div>
 
   <p *ngIf="loading">Loading meetings...</p>
-  <p class="error" *ngIf="error">{{ error }}</p>
+  <div class="alert alert-danger" role="alert" *ngIf="error">{{ error }}</div>
 
-  <table *ngIf="!loading && !error">
+  <table class="table table-striped table-hover align-middle" *ngIf="!loading && !error">
     <thead>
       <tr>
         <th>Title</th>
@@ -25,17 +33,17 @@
         <td><a [routerLink]="[meeting.id]">{{ meeting.title }}</a></td>
         <td>{{ meeting.started_at | date: 'medium' }}</td>
         <td>{{ meeting.note_count }}</td>
-        <td><span class="badge" [ngClass]="summaryBadge(meeting)">{{ summaryBadge(meeting) }}</span></td>
+        <td><span class="badge" [ngClass]="summaryBadgeClass(meeting)">{{ summaryBadge(meeting) }}</span></td>
       </tr>
       <tr *ngIf="meetings.length === 0">
-        <td colspan="4">No meetings yet.</td>
+        <td colspan="4" class="text-muted">No meetings yet.</td>
       </tr>
     </tbody>
   </table>
 
-  <div class="pagination" *ngIf="!loading && !error">
-    <button (click)="previousPage()" [disabled]="!hasPrevious">Previous</button>
+  <div class="d-flex align-items-center gap-3" *ngIf="!loading && !error">
+    <button class="btn btn-outline-secondary btn-sm" (click)="previousPage()" [disabled]="!hasPrevious">Previous</button>
     <span>Page {{ page }}</span>
-    <button (click)="nextPage()" [disabled]="!hasNext">Next</button>
+    <button class="btn btn-outline-secondary btn-sm" (click)="nextPage()" [disabled]="!hasNext">Next</button>
   </div>
 </section>

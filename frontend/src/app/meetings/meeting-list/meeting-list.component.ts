@@ -1,7 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 
 import { Meeting, CreateMeetingPayload } from '../../core/models/meeting.model';
+import { SummaryStatus } from '../../core/models/summary.model';
 import { MeetingService } from '../../core/services/meeting.service';
+import { summaryBadgeClass as badgeClassFor } from '../../core/summary-badge.util';
 
 @Component({
   selector: 'app-meeting-list',
@@ -52,8 +54,12 @@ export class MeetingListComponent implements OnInit {
     if (this.hasPrevious) this.loadMeetings(this.page - 1);
   }
 
-  summaryBadge(meeting: Meeting): string {
+  summaryBadge(meeting: Meeting): SummaryStatus | 'none' {
     return meeting.latest_summary?.status ?? 'none';
+  }
+
+  summaryBadgeClass(meeting: Meeting): string {
+    return badgeClassFor(this.summaryBadge(meeting));
   }
 
   createMeeting(): void {

@@ -1,1 +1,3 @@
-/* Add minimal styles as needed */
+.badge {
+  text-transform: capitalize;
+}

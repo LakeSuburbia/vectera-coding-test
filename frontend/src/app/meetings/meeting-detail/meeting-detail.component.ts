@@ -5,8 +5,9 @@ import { startWith, switchMap, takeWhile, tap } from 'rxjs/operators';
 
 import { Meeting } from '../../core/models/meeting.model';
 import { Note, CreateNotePayload } from '../../core/models/note.model';
-import { Summary } from '../../core/models/summary.model';
+import { Summary, SummaryStatus } from '../../core/models/summary.model';
 import { MeetingService } from '../../core/services/meeting.service';
+import { summaryBadgeClass } from '../../core/summary-badge.util';
 
 const POLL_INTERVAL_MS = 2000;
 
@@ -39,6 +40,14 @@ export class MeetingDetailComponent implements OnInit, OnDestroy {
   private pollSub?: Subscription;
 
   constructor(private route: ActivatedRoute, private meetingService: MeetingService) {}
+
+  get summaryStatus(): SummaryStatus | 'none' {
+    return this.summary?.status ?? 'none';
+  }
+
+  get summaryStatusBadgeClass(): string {
+    return summaryBadgeClass(this.summaryStatus);
+  }
 
   ngOnInit(): void {
     this.meetingId = Number(this.route.snapshot.paramMap.get('id'));

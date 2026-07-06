@@ -1,43 +1,61 @@
 <p *ngIf="loading">Loading meeting...</p>
-<p class="error" *ngIf="error">{{ error }}</p>
+<div class="alert alert-danger" role="alert" *ngIf="error">{{ error }}</div>
 
 <section *ngIf="meeting">
-  <a routerLink="/meetings">&larr; Back to meetings</a>
+  <a routerLink="/meetings" class="d-inline-block mb-3">&larr; Back to meetings</a>
   <h2>{{ meeting.title }}</h2>
-  <p>Started at: {{ meeting.started_at | date: 'medium' }}</p>
+  <p class="text-muted">Started at: {{ meeting.started_at | date: 'medium' }}</p>
 
-  <h3>Summary</h3>
-  <div class="summary-panel">
-    <p *ngIf="!summary && !triggeringSummary">No summary yet.</p>
-    <p *ngIf="triggeringSummary || summary?.status === 'pending'">Generating summary&hellip;</p>
-    <p class="error" *ngIf="summary?.status === 'failed'">Summary generation failed.</p>
-    <p *ngIf="summary?.status === 'ready'">{{ summary?.content }}</p>
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>Summary</span>
+      <span class="badge" [ngClass]="summaryStatusBadgeClass">{{ summaryStatus }}</span>
+    </div>
+    <div class="card-body">
+      <p class="card-text text-muted mb-2" *ngIf="!summary && !triggeringSummary">No summary yet.</p>
+      <p class="card-text mb-2" *ngIf="triggeringSummary || summary?.status === 'pending'">
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+        Generating summary&hellip;
+      </p>
+      <p class="card-text text-danger mb-2" *ngIf="summary?.status === 'failed'">Summary generation failed.</p>
+      <p class="card-text mb-2" *ngIf="summary?.status === 'ready'">{{ summary?.content }}</p>
 
-    <button (click)="generateSummary()" [disabled]="triggeringSummary || polling">
-      {{ summary?.status === 'ready' || summary?.status === 'failed' ? 'Regenerate summary' : 'Generate summary' }}
-    </button>
-    <p class="error" *ngIf="summaryActionError">{{ summaryActionError }}</p>
+      <button class="btn btn-primary" (click)="generateSummary()" [disabled]="triggeringSummary || polling">
+        {{ summary?.status === 'ready' || summary?.status === 'failed' ? 'Regenerate summary' : 'Generate summary' }}
+      </button>
+      <div class="alert alert-danger mt-2 mb-0" role="alert" *ngIf="summaryActionError">{{ summaryActionError }}</div>
+    </div>
   </div>
 
   <h3>Notes ({{ meeting.note_count }})</h3>
-  <form class="inline-form" (ngSubmit)="addNote()" #noteForm="ngForm">
-    <input type="text" name="author" placeholder="Your name" [(ngModel)]="newNote.author" required />
-    <textarea name="text" placeholder="Add a note..." [(ngModel)]="newNote.text" required></textarea>
-    <button type="submit" [disabled]="addingNote || noteForm.invalid">Add note</button>
+  <form class="row g-2 mb-3" (ngSubmit)="addNote()" #noteForm="ngForm">
+    <div class="col-auto">
+      <input type="text" class="form-control" name="author" placeholder="Your name" [(ngModel)]="newNote.author" required />
+    </div>
+    <div class="col">
+      <textarea class="form-control" name="text" placeholder="Add a note..." rows="1" [(ngModel)]="newNote.text" required></textarea>
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-primary" [disabled]="addingNote || noteForm.invalid">Add note</button>
+    </div>
   </form>
-  <p class="error" *ngIf="addNoteError">{{ addNoteError }}</p>
+  <div class="alert alert-danger" role="alert" *ngIf="addNoteError">{{ addNoteError }}</div>
 
   <p *ngIf="notesLoading && notes.length === 0">Loading notes...</p>
-  <p class="error" *ngIf="notesError">{{ notesError }}</p>
+  <div class="alert alert-danger" role="alert" *ngIf="notesError">{{ notesError }}</div>
 
-  <ul class="notes-feed">
-    <li *ngFor="let note of notes">
-      <strong>{{ note.author }}</strong>
-      <span class="timestamp">{{ note.created_at | date: 'short' }}</span>
-      <p>{{ note.text }}</p>
+  <ul class="list-group mb-3">
+    <li class="list-group-item" *ngFor="let note of notes">
+      <div class="d-flex justify-content-between">
+        <strong>{{ note.author }}</strong>
+        <span class="text-muted small">{{ note.created_at | date: 'short' }}</span>
+      </div>
+      <p class="mb-0">{{ note.text }}</p>
     </li>
-    <li *ngIf="notes.length === 0 && !notesLoading">No notes yet.</li>
+    <li class="list-group-item text-muted" *ngIf="notes.length === 0 && !notesLoading">No notes yet.</li>
   </ul>
 
-  <button *ngIf="notesHasNext" (click)="loadMoreNotes()" [disabled]="notesLoading">Load more notes</button>
+  <button class="btn btn-outline-secondary btn-sm" *ngIf="notesHasNext" (click)="loadMoreNotes()" [disabled]="notesLoading">
+    Load more notes
+  </button>
 </section>
