@@ -28,3 +28,6 @@ Time spent: 2h
 - Bundle both notes' endpoints under a single router
     - Otherwise, this triggers a 'method not allowed' error, due to the 2 conflicting routers.
     - Another solution would be to use a default view for the get method and add other views using get_notes.mapping.<method>. However, since we only distinguish between 2 methods in this case, I prefer the current setup.
+- Added a custom SummaryManager
+    - Let's formalize & protect how we initialize Summaries.
+    - Implicitly make Summary a state-machine by formalizing which actions are allowed.

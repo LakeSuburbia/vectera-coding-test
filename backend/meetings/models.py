@@ -1,4 +1,7 @@
+import logging
 from django.db import models
+
+log = logging.getLogger(__name__)
 
 class Meeting(models.Model):
     title = models.CharField(max_length=200)
@@ -20,6 +23,14 @@ class Note(models.Model):
         ]
         ordering = ["created_at"]
 
+class SummaryManager(models.Manager):
+    def initialize(self, meeting_id):
+        summary, _ = self.update_or_create(
+            meeting_id=meeting_id,
+            defaults={"status": Summary.PENDING}
+        )
+        return summary
+
 class Summary(models.Model):
     PENDING = "pending"
     READY = "ready"
@@ -36,5 +47,33 @@ class Summary(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    objects = SummaryManager()
+
     class Meta:
         ordering = ["-updated_at"]
+
+    def write(self, content):
+        if self.status == Summary.READY:
+            raise ValueError("Summary has been finalized and cannot be modified.")
+        if content:
+            self.content = content
+            self.status = Summary.READY
+            log.info("Summary written for meeting %s", self.meeting)
+        else:
+            self.status = Summary.FAILED
+            log.warning(
+                "Summary marked as failed for meeting %s due to empty content",
+                self.meeting,
+            )
+        self.save()
+
+    def fail(self, exception=None):
+        self.status = Summary.FAILED
+        log.info("Summary failed for meeting %s", self.meeting)
+        if exception:
+            log.exception(
+                "Exception occurred while processing summary for meeting %s: %s",
+                self.meeting,
+                exception,
+            )
+        self.save()
