@@ -61,6 +61,23 @@ def test_list_meetings_query_count_is_independent_of_meeting_count(
 
 
 @pytest.mark.django_db
+def test_list_meetings_ordered_by_started_at_descending(
+    api_client: APIClient,
+) -> None:
+    Meeting.objects.create(title="Oldest", started_at="2020-01-01T10:00:00Z")
+    Meeting.objects.create(title="Newest", started_at="2026-01-01T10:00:00Z")
+    Meeting.objects.create(title="Middle", started_at="2023-01-01T10:00:00Z")
+
+    response = api_client.get("/api/meetings/")
+
+    assert [m["title"] for m in response.data["results"]] == [
+        "Newest",
+        "Middle",
+        "Oldest",
+    ]
+
+
+@pytest.mark.django_db
 def test_add_and_list_notes_happy_path(api_client: APIClient, meeting: Meeting) -> None:
     add_response = api_client.post(
         f"/api/meetings/{meeting.id}/notes/",

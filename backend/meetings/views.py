@@ -27,6 +27,7 @@ class MeetingViewSet(viewsets.ModelViewSet):
         Meeting.objects.all()
         .select_related("summary")
         .annotate(note_count=Count("notes"))
+        .order_by("-started_at")
     )
     serializer_class = MeetingSerializer
 
