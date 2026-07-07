@@ -74,9 +74,11 @@ TUESDAY 07/07/2026
 Overall improvements
 Time-spent: 1h
 
-- Fix N+1 issue
-- Added a RUNNING status + basic in-memory guards for
-summarize()
-- Avoid concurrency by using a pg_lock during Summary.initialize() & Summary.start()
-- Small bugfixes
-- Added retries to pollSummary()
+- Used repreated manual regression testing in combination with Claude reviews to find final bugs & improvements.
+    - Fixed N+1 issue by merging the Summary query with the query of the related Meeting. By using .select_related("summary")
+    - Added a RUNNING status + basic in-memory guards for
+    summarize()
+    - Avoid concurrency by using a pg_lock during Summary.initialize() & Summary.start()
+    - Added retries to pollSummary()
+    - Minor bugfixes
+    - Clear Summary content upon failure, otherwise a former "Ready" result keeps on living in the field of this "Failed" Summary.
