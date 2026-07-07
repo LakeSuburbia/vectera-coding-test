@@ -120,8 +120,8 @@ def test_summarize_happy_path(
     summary_response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
 
     assert summary_response.status_code == status.HTTP_200_OK
-    assert summary_response.data["detail"]["status"] == Summary.READY
-    assert summary_response.data["detail"]["content"] == mock_ai_client.result
+    assert summary_response.data["status"] == Summary.READY
+    assert summary_response.data["content"] == mock_ai_client.result
 
 
 @pytest.mark.django_db
@@ -140,7 +140,7 @@ def test_summarize_failure_marks_summary_failed(
     summary_response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
 
     assert summary_response.status_code == status.HTTP_200_OK
-    assert summary_response.data["detail"]["status"] == Summary.FAILED
+    assert summary_response.data["status"] == Summary.FAILED
 
 
 @pytest.mark.django_db
@@ -190,14 +190,14 @@ def test_summarize_runs_in_background_and_reports_running_until_complete(
 
     assert started.wait(timeout=2), "background job never started"
     running_response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
-    assert running_response.data["detail"]["status"] == Summary.RUNNING
+    assert running_response.data["status"] == Summary.RUNNING
 
     release.set()
     threads[0].join(timeout=2)
 
     ready_response = api_client.get(f"/api/meetings/{meeting.id}/summary/")
-    assert ready_response.data["detail"]["status"] == Summary.READY
-    assert ready_response.data["detail"]["content"] == "Async summary."
+    assert ready_response.data["status"] == Summary.READY
+    assert ready_response.data["content"] == "Async summary."
 
 
 @pytest.mark.django_db

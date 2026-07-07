@@ -48,7 +48,7 @@ describe('MeetingService', () => {
     req.flush(mockResponse);
   });
 
-  it('unwraps the summary payload nested under "detail"', () => {
+  it('fetches the summary for a meeting', () => {
     const mockSummary = { id: 1, content: 'Recap', status: 'ready', created_at: 'x', updated_at: 'y' };
 
     service.getSummary(1).subscribe((summary) => {
@@ -58,7 +58,7 @@ describe('MeetingService', () => {
 
     const req = httpMock.expectOne((r) => r.url === '/api/meetings/1/summary/');
     expect(req.request.method).toBe('GET');
-    req.flush({ detail: mockSummary });
+    req.flush(mockSummary);
   });
 
   it('posts a new note to the correct endpoint', () => {

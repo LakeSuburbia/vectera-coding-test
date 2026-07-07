@@ -102,6 +102,4 @@ class MeetingViewSet(viewsets.ModelViewSet):
             summary = Summary.objects.get(meeting_id=meeting.id)
         except Summary.DoesNotExist:
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        return Response(
-            {"detail": self.get_serializer(summary).data}, status=status.HTTP_200_OK
-        )
+        return Response(self.get_serializer(summary).data, status=status.HTTP_200_OK)

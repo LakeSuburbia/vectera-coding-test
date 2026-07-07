@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
 
 import { Meeting, CreateMeetingPayload } from '../models/meeting.model';
 import { Note, CreateNotePayload } from '../models/note.model';
@@ -43,8 +42,6 @@ export class MeetingService {
   }
 
   getSummary(meetingId: number): Observable<Summary> {
-    return this.http
-      .get<{ detail: Summary }>(`${this.baseUrl}/${meetingId}/summary/`)
-      .pipe(map((response) => response.detail));
+    return this.http.get<Summary>(`${this.baseUrl}/${meetingId}/summary/`);
   }
 }
