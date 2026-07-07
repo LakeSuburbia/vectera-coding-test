@@ -9,6 +9,7 @@ Briefly note:
 Overall Assumptions:
 - This is a dev project that is currently implemented in a way that is easy to debug, rather than a complete, production-safe implementation. If you want to change this to a production project, changes in settings.py will be needed.
 - Let's assume the in-memory Summary.status can be trusted in concurrency issues. In the real world, race conditions can still happen during the write to db. But implementing this, asked for some overengineering from my side. So decided to not implement it like that.
+    - Nevermind, fixed it anyway.
 
 Improvements for later:
 - Use a cached AI response if the notes are the same as a former request.
@@ -43,7 +44,7 @@ Time spent: 2h
     - If we would have multiple subscriptions, a more abstract implementation would make sense. For now, this will do.
     - I chose to not add fallback systems to the client, for when a call to the Anthropic API fails. But to just throw errors and let the caller handle these. In our case, we just want to set the status to failed, so we don't need more granular error handling.
     - One exception to "just throw errors": if there are no notes to summarize (empty/whitespace-only), the client returns a placeholder string ("No notes available to summarize yet.") instead of throwing, so the summary is marked ready with that placeholder rather than failed.
-- I had initially written the summarize endpoint as a sync endpoint, where the async AnthropicClient method is called and awaited for inline. To make this async, I've updated this to a solution with threads. To avoid concurrency issues, I've added a durable atomic block to _run_summary_job. In a non-time-boxed context, I would go for a proper reusable queueing system instead of using threads. Maybe use python-rq?
+- I had initially written the summarize endpoint as a sync endpoint, where the async AnthropicClient method is called and awaited for inline. To make this async, I've updated this to a solution with threads. To avoid concurrency issues, I've added a a pg_lock.advisory() to _run_summary_job. In a non-time-boxed context, I would go for a proper reusable queueing system instead of using threads. Maybe use python-rq?
     - I moved this new logic to the model, because it was taking up a lot of space in the views file. It's better to have this kind of logic abstracted away. An even better and scalable approach would be to create a seperate 'workflow' directory with this kind of logic. It would also be good to split up the models into seperate files, since the main file is growing quite a bit. But for now it's still okay, in my opinion.
 
 MONDAY 06/07/2026
@@ -69,12 +70,12 @@ Time-spent: 1h
 - Made sure that important methods are typed.
 - Added all these checks & all tests to CI.
 
-MONDAY 06/07/2026
+TUESDAY 07/07/2026
 Overall improvements
 Time-spent: 1h
 
 - Fix N+1 issue
 - Added a RUNNING status + basic in-memory guards for
 summarize()
-- Playing around with avoiding concurrency issues, but abandoning -> See assumptions
+- Avoid concurrency by using a pg_lock during Summary.initialize() & Summary.start()
 - Small bugfixes
