@@ -4,12 +4,17 @@ import logging
 import threading
 from typing import Any, Callable
 
+import pglock
 from asgiref.sync import async_to_sync
-from django.db import connection, models, transaction
+from django.db import connection, models
 
 from .services.ai import client as ai_client
 
 log = logging.getLogger(__name__)
+
+
+def _summary_lock(meeting_id: int) -> pglock.advisory:
+    return pglock.advisory(f"meetings.summary:{meeting_id}")
 
 
 class Meeting(models.Model):
@@ -45,12 +50,13 @@ class Note(models.Model):
 
 class SummaryManager(models.Manager):
     def initialize(self, meeting_id: int) -> "Summary":
-        summary, created = self.get_or_create(
-            meeting_id=meeting_id, defaults={"status": Summary.PENDING}
-        )
-        if not created and summary.status in (Summary.READY, Summary.FAILED):
-            summary.status = Summary.PENDING
-            summary.save(update_fields=["status", "updated_at"])
+        with _summary_lock(meeting_id):
+            summary, created = self.get_or_create(
+                meeting_id=meeting_id, defaults={"status": Summary.PENDING}
+            )
+            if not created and summary.status in (Summary.READY, Summary.FAILED):
+                summary.status = Summary.PENDING
+                summary.save(update_fields=["status", "updated_at"])
         return summary
 
 
@@ -83,15 +89,18 @@ class Summary(models.Model):
         """Raised when a job is already in flight for this Summary."""
 
     def start(self) -> None:
-        if self.status == Summary.RUNNING:
-            raise Summary.AlreadyRunning(
-                f"A summary job is already running for meeting {self.meeting_id}."
-            )
-        if self.status != Summary.PENDING:
-            raise ValueError("Summary is not in a pending state and cannot be started.")
-
-        self.status = Summary.RUNNING
-        self.save(update_fields=["status", "updated_at"])
+        with _summary_lock(self.meeting_id):
+            self.refresh_from_db()
+            if self.status == Summary.RUNNING:
+                raise Summary.AlreadyRunning(
+                    f"A summary job is already running for meeting {self.meeting_id}."
+                )
+            if self.status != Summary.PENDING:
+                raise ValueError(
+                    "Summary is not in a pending state and cannot be started."
+                )
+            self.status = Summary.RUNNING
+            self.save(update_fields=["status", "updated_at"])
 
         note_count = Note.objects.filter(meeting_id=self.meeting_id).count()
         log.info(
@@ -102,6 +111,7 @@ class Summary(models.Model):
     def write(self, content: str) -> None:
         if self.status != Summary.RUNNING:
             raise ValueError("Summary is not running and cannot be written to.")
+        previous_status, previous_content = self.status, self.content
         if content:
             self.content = content
             self.status = Summary.READY
@@ -112,7 +122,14 @@ class Summary(models.Model):
                 "Summary marked as failed for meeting %s due to empty content",
                 self.meeting_id,
             )
-        self.save()
+        try:
+            self.save()
+        except Exception:
+            # Keep self.status truthful if the write itself didn't persist,
+            # so a subsequent fail() call still sees RUNNING and can record
+            # the failure instead of raising on a stale guard.
+            self.status, self.content = previous_status, previous_content
+            raise
 
     def fail(self, exception: Exception | None = None) -> None:
         if self.status != Summary.RUNNING:
@@ -130,20 +147,33 @@ class Summary(models.Model):
         self.save()
 
     def _spawn(self, target: Callable[..., None], *args: Any) -> None:
-        threading.Thread(target=target, args=args, daemon=True).start()
+        def run_and_close_connection() -> None:
+            try:
+                target(*args)
+            finally:
+                connection.close()
+
+        threading.Thread(target=run_and_close_connection, daemon=True).start()
 
     def _run_summary_job(self, meeting_id: int) -> None:
         try:
-            with transaction.atomic(durable=True):
-                summary = Summary.objects.select_for_update().get(meeting_id=meeting_id)
-                try:
-                    notes = Note.objects.filter(meeting_id=meeting_id).order_by(
-                        "created_at"
-                    )
-                    concatenated_notes = "\n".join(note.text for note in notes)
-                    content = async_to_sync(ai_client.summarize)(concatenated_notes)
-                    summary.write(content)
-                except Exception as e:
-                    summary.fail(e)
-        finally:
-            connection.close()
+            summary = Summary.objects.get(meeting_id=meeting_id)
+        except Summary.DoesNotExist:
+            log.error(
+                "Summary for meeting %s vanished before its job could run",
+                meeting_id,
+            )
+            return
+        try:
+            notes = Note.objects.filter(meeting_id=meeting_id).order_by("created_at")
+            concatenated_notes = "\n".join(note.text for note in notes)
+            content = async_to_sync(ai_client.summarize)(concatenated_notes)
+            summary.write(content)
+        except Exception as e:
+            try:
+                summary.fail(e)
+            except Exception:
+                log.exception(
+                    "Failed to mark summary as failed for meeting %s after a job error",
+                    meeting_id,
+                )

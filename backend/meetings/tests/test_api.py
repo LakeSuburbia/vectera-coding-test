@@ -2,6 +2,7 @@ import asyncio
 import threading
 
 import pytest
+from django.db import connection
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -166,7 +167,13 @@ def test_summarize_runs_in_background_and_reports_running_until_complete(
     threads: list[threading.Thread] = []
 
     def tracking_spawn(self, target, *args) -> None:
-        thread = threading.Thread(target=target, args=args, daemon=True)
+        def run_and_close_connection() -> None:
+            try:
+                target(*args)
+            finally:
+                connection.close()
+
+        thread = threading.Thread(target=run_and_close_connection, daemon=True)
         threads.append(thread)
         thread.start()
 
