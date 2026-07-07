@@ -137,6 +137,7 @@ class Summary(models.Model):
                 "Summary is not in a running state and cannot be marked as failed."
             )
         self.status = Summary.FAILED
+        self.content = ""
         log.info("Summary failed for meeting %s", self.meeting_id)
         if exception:
             log.exception(

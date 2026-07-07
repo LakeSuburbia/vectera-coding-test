@@ -100,6 +100,25 @@ def test_summary_fail_sets_failed_status(running_summary: Summary, exception) ->
 
 
 @pytest.mark.django_db
+def test_summary_fail_clears_stale_content_from_a_previous_success(
+    meeting: Meeting, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(Summary, "_spawn", lambda self, target, *args: None)
+    summary = Summary.objects.initialize(meeting_id=meeting.id)
+    summary.start()
+    summary.write("Previous successful summary.")
+    assert summary.status == Summary.READY
+
+    summary = Summary.objects.initialize(meeting_id=meeting.id)
+    summary.start()
+    summary.fail(Exception("boom"))
+    summary.refresh_from_db()
+
+    assert summary.status == Summary.FAILED
+    assert summary.content == ""
+
+
+@pytest.mark.django_db
 def test_summary_fail_raises_when_not_running(meeting: Meeting) -> None:
     summary = Summary.objects.initialize(meeting_id=meeting.id)
 
