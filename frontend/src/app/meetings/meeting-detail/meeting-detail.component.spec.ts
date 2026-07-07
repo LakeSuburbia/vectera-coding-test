@@ -1,9 +1,9 @@
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterTestingModule } from '@angular/router/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 
 import { MeetingDetailComponent } from './meeting-detail.component';
 import { MeetingService } from '../../core/services/meeting.service';
@@ -51,6 +51,7 @@ function pageOf<T>(results: T[]): PaginatedResponse<T> {
 
 describe('MeetingDetailComponent', () => {
   let component: MeetingDetailComponent;
+  let fixture: ComponentFixture<MeetingDetailComponent>;
   let meetingServiceSpy: jasmine.SpyObj<MeetingService>;
 
   beforeEach(() => {
@@ -73,7 +74,8 @@ describe('MeetingDetailComponent', () => {
       ],
     });
 
-    component = TestBed.createComponent(MeetingDetailComponent).componentInstance;
+    fixture = TestBed.createComponent(MeetingDetailComponent);
+    component = fixture.componentInstance;
   });
 
   it('loads the meeting and its notes for the id from the route', () => {
@@ -233,6 +235,46 @@ describe('MeetingDetailComponent', () => {
       expect(component.summary?.content).toBe('Recovered');
       expect(component.polling).toBe(false);
       expect(component.summaryActionError).toBeNull();
+    }));
+
+    it('never shows stale ready content together with the generating spinner when regenerating', fakeAsync(() => {
+      meetingServiceSpy.getMeeting.and.returnValue(
+        of(buildMeeting({ latest_summary: buildSummary({ status: 'ready', content: 'Previous summary' }) }))
+      );
+      fixture.detectChanges();
+
+      const cardBody = fixture.nativeElement as HTMLElement;
+      expect(cardBody.textContent).toContain('Previous summary');
+      expect(cardBody.querySelector('.spinner-border')).toBeNull();
+
+      const generateSubject = new Subject<{ detail: string }>();
+      const summarySubject = new Subject<Summary>();
+      meetingServiceSpy.generateSummary.and.returnValue(generateSubject);
+      meetingServiceSpy.getSummary.and.returnValue(summarySubject);
+
+      component.generateSummary();
+      fixture.detectChanges();
+      // The POST hasn't resolved yet: triggeringSummary is true, so the
+      // stale content must already be hidden behind the spinner.
+      expect(cardBody.querySelector('.spinner-border')).not.toBeNull();
+      expect(cardBody.textContent).not.toContain('Previous summary');
+
+      generateSubject.next({ detail: 'ok' });
+      generateSubject.complete();
+      fixture.detectChanges();
+      // triggeringSummary just flipped false and polling just started, but
+      // the first getSummary() response for this poll hasn't landed --
+      // summary.status is still the stale 'ready' value from before.
+      expect(component.triggeringSummary).toBe(false);
+      expect(component.polling).toBe(true);
+      expect(cardBody.querySelector('.spinner-border')).not.toBeNull();
+      expect(cardBody.textContent).not.toContain('Previous summary');
+
+      summarySubject.next(buildSummary({ status: 'running' }));
+      fixture.detectChanges();
+      expect(component.summary?.status).toBe('running');
+
+      component.ngOnDestroy(); // still polling ('running'); stop the pending interval timer
     }));
 
     it('stops polling and reports failure after repeated consecutive errors', fakeAsync(() => {

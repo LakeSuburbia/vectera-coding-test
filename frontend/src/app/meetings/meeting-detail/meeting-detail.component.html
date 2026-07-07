@@ -12,18 +12,13 @@
       <span class="badge" [ngClass]="summaryStatusBadgeClass">{{ summaryStatus }}</span>
     </div>
     <div class="card-body">
-      <p class="card-text text-muted mb-2" *ngIf="!summary && !triggeringSummary">No summary yet.</p>
-      <p
-        class="card-text mb-2"
-        *ngIf="
-          triggeringSummary || summary?.status === 'pending' || summary?.status === 'running'
-        "
-      >
+      <p class="card-text text-muted mb-2" *ngIf="!summary && !triggeringSummary && !polling">No summary yet.</p>
+      <p class="card-text mb-2" *ngIf="triggeringSummary || polling">
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         Generating summary&hellip;
       </p>
-      <p class="card-text text-danger mb-2" *ngIf="summary?.status === 'failed'">Summary generation failed.</p>
-      <p class="card-text mb-2 summary-content" *ngIf="summary?.status === 'ready'">{{ summary?.content }}</p>
+      <p class="card-text text-danger mb-2" *ngIf="summary?.status === 'failed' && !triggeringSummary && !polling">Summary generation failed.</p>
+      <p class="card-text mb-2 summary-content" *ngIf="summary?.status === 'ready' && !triggeringSummary && !polling">{{ summary?.content }}</p>
 
       <button class="btn btn-primary" (click)="generateSummary()" [disabled]="triggeringSummary || polling">
         {{ summary?.status === 'ready' || summary?.status === 'failed' ? 'Regenerate summary' : 'Generate summary' }}
