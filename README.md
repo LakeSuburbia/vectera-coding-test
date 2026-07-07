@@ -1,16 +1,24 @@
 # Vectera Coding Test
 
-This repo contains the **basics** for the coding test. It includes:
-- **Backend**: Django + DRF skeleton with stubs and TODOs
-- **Frontend**: Angular skeleton (routing, service stubs, components)
+A small meeting-notes app: create meetings, add notes, and generate an AI summary of a meeting's notes asynchronously.
+- **Backend**: Django + DRF - models, REST API, async summary generation backed by the Anthropic API
+- **Frontend**: Angular - meetings list & detail, note-taking, summary generation with status polling
 - **Docker**: Postgres + Backend
-- **CI**: Placeholder workflow that **fails** by default (you will fix it)
+- **CI**: GitHub Actions - lint (black/isort/eslint) + tests for both backend and frontend (`.github/workflows/ci.yml`)
 
-> Target time: 4–6 hours. Complete the core tasks.
+See `DECISIONS.md` for design trade-offs, deviations from the original spec, and time spent per area.
 
 ## Getting Started
 
-### 1) Run with Docker (DB + Backend)
+### 1) Configure the Anthropic API key
+Summary generation calls the real Anthropic API, so it needs credentials:
+```bash
+cp backend/.env.example backend/.env
+# then fill in ANTHROPIC_API_KEY & ANTHROPIC_MODEL
+```
+Everything else works without this, but “Generate summary” will fail until it's set.
+
+### 2) Run with Docker (DB + Backend)
 ```bash
 docker compose up --build
 ```
@@ -20,7 +28,7 @@ docker compose up --build
 
 **Note:** The backend image installs Python dependencies and runs migrations automatically.
 
-### 2) Frontend (Angular)
+### 3) Frontend (Angular)
 ```bash
 cd frontend
 npm install
@@ -28,23 +36,31 @@ npm start
 ```
 - Angular dev server: http://localhost:4200 (proxies /api to http://localhost:8000)
 
-### 3) What you implement
+### 4) Running tests
+```bash
+# Backend
+cd backend && python -m pytest
+
+# Frontend
+cd frontend && npm test
+```
+
+## What's implemented
 Backend (Django + DRF):
 - Data models for `Meeting`, `Note`, `Summary`
-- REST endpoints for meetings, notes, and summary flow
-- Simulated async summary using the provided `services/ai.py` stub
-- Basic validation, pagination, simple logging & `/api/health/`
+- REST endpoints for meetings, notes, and the summary flow
+- Async summary generation (threaded job + Postgres advisory lock, see `backend/meetings/models.py`) via the Anthropic API (`backend/meetings/services/ai.py`)
+- Validation, pagination, logging & `/api/health/`
 
 Frontend (Angular):
 - `/meetings` list (title, started_at, note count, summary badge)
 - `/meetings/:id` detail (notes feed, add note form, “Generate summary”, summary panel)
 - Loading/error states, typed API models, clean module structure
-- Polling summary status until `ready`
+- Polling summary status until `ready` or `failed`
 
 Tests:
-- Backend: at least 1 model test, 1 happy-path API test, 1 validation/edge test
-- Frontend: at least 1 unit test (service or component)
+- Backend: model tests, happy-path API tests, validation/edge-case tests (`backend/meetings/tests/`)
+- Frontend: service and component unit tests (`*.spec.ts`)
 
-### 4) Docs
-- Update `DECISIONS.md` with assumptions, trade-offs, and improvements.
-- Keep the timebox. Practical solutions are fine—avoid over-engineering.
+## Docs
+`DECISIONS.md` has the full log of decisions, trade-offs, and possible future improvements.

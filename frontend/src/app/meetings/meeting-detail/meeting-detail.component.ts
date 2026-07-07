@@ -141,11 +141,14 @@ export class MeetingDetailComponent implements OnInit, OnDestroy {
 
     this.pollSub = interval(POLL_INTERVAL_MS)
       .pipe(
-        startWith(0),
+        startWith(0), // poll immediately instead of waiting a full interval for the first check
         switchMap(() =>
           this.meetingService.getSummary(this.meetingId).pipe(
             tap(() => (consecutiveFailures = 0)),
             catchError(() => {
+              // Tolerate transient request failures rather than ending the poll on
+              // the first one; emit null so takeWhile below can decide whether to
+              // keep going based on the consecutive-failure count.
               consecutiveFailures++;
               return of(null);
             })
@@ -157,7 +160,7 @@ export class MeetingDetailComponent implements OnInit, OnDestroy {
         takeWhile((summary) => {
           if (summary === null) return consecutiveFailures < MAX_CONSECUTIVE_POLL_FAILURES;
           return summary.status === 'pending' || summary.status === 'running';
-        }, true)
+        }, true) // inclusive: lets the terminal emission (ready/failed/too-many-failures) reach `complete` below
       )
       .subscribe({
         complete: () => {

@@ -20,6 +20,8 @@ class AnthropicClient:
         """
         cleaned_text = (text or "").strip()
         if not cleaned_text:
+            # A placeholder, not an error:
+            # We treat empty notes as a valid case, and the frontend can handle this gracefully.
             return "No notes available to summarize yet."
 
         if not self.client or not self.language_model:

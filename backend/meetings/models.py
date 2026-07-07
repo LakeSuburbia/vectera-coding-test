@@ -14,6 +14,9 @@ log = logging.getLogger(__name__)
 
 
 def _summary_lock(meeting_id: int) -> pglock.advisory:
+    # A Postgres advisory lock, not a Python lock, because Django can run multiple
+    # worker processes: a thread lock wouldn't be visible across them and couldn't
+    # stop two workers from racing to initialize/start a job for the same meeting.
     return pglock.advisory(f"meetings.summary:{meeting_id}")
 
 
@@ -54,6 +57,9 @@ class SummaryManager(models.Manager):
             summary, created = self.get_or_create(
                 meeting_id=meeting_id, defaults={"status": Summary.PENDING}
             )
+            # Only rearm a finished summary (READY/FAILED) so it can be regenerated.
+            # A RUNNING summary is left untouched - resetting it here would let a
+            # second request queue a duplicate job for the same meeting.
             if not created and summary.status in (Summary.READY, Summary.FAILED):
                 summary.status = Summary.PENDING
                 summary.save(update_fields=["status", "updated_at"])
@@ -61,6 +67,17 @@ class SummaryManager(models.Manager):
 
 
 class Summary(models.Model):
+    """
+    Async summary-generation job for a Meeting, modeled as a small state machine:
+
+        PENDING -> RUNNING -> READY    (generation succeeded)
+        PENDING -> RUNNING -> FAILED   (generation errored, or content is empty)
+        READY/FAILED -> PENDING        (via SummaryManager.initialize, to regenerate)
+
+    Transitions are guarded by _summary_lock so concurrent requests for the same
+    meeting can't both start a job or leave status/content inconsistent.
+    """
+
     PENDING = "pending"
     RUNNING = "running"
     READY = "ready"
@@ -90,6 +107,8 @@ class Summary(models.Model):
 
     def start(self) -> None:
         with _summary_lock(self.meeting_id):
+            # Re-read status under the lock: `self` may be a stale instance loaded
+            # before another request called initialize()/start() for this meeting.
             self.refresh_from_db()
             if self.status == Summary.RUNNING:
                 raise Summary.AlreadyRunning(
@@ -152,6 +171,9 @@ class Summary(models.Model):
             try:
                 target(*args)
             finally:
+                # Django DB connections are thread-local and opened lazily; without
+                # this the connection opened by this thread would leak for its
+                # remaining lifetime.
                 connection.close()
 
         threading.Thread(target=run_and_close_connection, daemon=True).start()
@@ -174,6 +196,9 @@ class Summary(models.Model):
             try:
                 summary.fail(e)
             except Exception:
+                # This job runs on a detached daemon thread with no caller to
+                # propagate to, so even a failure to record the failure is only
+                # logged rather than raised.
                 log.exception(
                     "Failed to mark summary as failed for meeting %s after a job error",
                     meeting_id,

@@ -23,6 +23,12 @@ def health(request):
 
 
 class MeetingViewSet(viewsets.ModelViewSet):
+    """
+    Standard CRUD for Meeting, plus two sub-resource actions:
+    - notes: GET (list, paginated) / POST (create) notes for a meeting.
+    - summarize / summary: trigger and read the meeting's async Summary job.
+    """
+
     queryset = (
         Meeting.objects.all()
         .select_related("summary")
@@ -38,6 +44,7 @@ class MeetingViewSet(viewsets.ModelViewSet):
         serializer_class=NoteSerializer,
     )
     def notes(self, request: Request, pk=None) -> Response:
+        """GET: paginated list of notes, oldest first. POST: create a note (201)."""
         meeting = self.get_object()
         if request.method == "POST":
             return self._add_note(request, meeting)
@@ -70,6 +77,12 @@ class MeetingViewSet(viewsets.ModelViewSet):
         serializer_class=PostSummarySerializer,
     )
     def summarize(self, request: Request, pk=None) -> Response:
+        """
+        Start (or restart) async summary generation for this meeting.
+
+        Returns 202 once the job has been queued, 409 if a job is already
+        running for this meeting, or 500 if the job could not be started.
+        """
         meeting = self.get_object()
         summary = Summary.objects.initialize(meeting_id=meeting.id)
         try:
@@ -97,6 +110,10 @@ class MeetingViewSet(viewsets.ModelViewSet):
         serializer_class=SummarySerializer,
     )
     def get_summary(self, request: Request, pk=None) -> Response:
+        """
+        Return the current Summary for this meeting, or 404 if none has been
+        generated yet.
+        """
         meeting = self.get_object()
         try:
             summary = Summary.objects.get(meeting_id=meeting.id)
