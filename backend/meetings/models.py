@@ -27,7 +27,7 @@ class Meeting(models.Model):
 
 
 class NoteManager(models.Manager):
-    def create(self, meeting_id: int, author: str, text: str) -> "Note":
+    def create(self, meeting_id: int, author: str, text: str) -> Note:
         note = super().create(meeting_id=meeting_id, author=author, text=text)
         log.info("Note added to meeting %s by %s", meeting_id, author)
         return note
@@ -49,7 +49,7 @@ class Note(models.Model):
 
 
 class SummaryManager(models.Manager):
-    def initialize(self, meeting_id: int) -> "Summary":
+    def initialize(self, meeting_id: int) -> Summary:
         with _summary_lock(meeting_id):
             summary, created = self.get_or_create(
                 meeting_id=meeting_id, defaults={"status": Summary.PENDING}
