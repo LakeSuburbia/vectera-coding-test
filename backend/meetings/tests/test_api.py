@@ -16,12 +16,6 @@ def _run_spawn_inline(self, target, *args) -> None:
     target(*args)
 
 
-def _mock_spawn() -> None:
-    """Patch Summary._spawn to run the job inline instead of spawning a thread."""
-    monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(Summary, "_spawn", _run_spawn_inline)
-
-
 @pytest.mark.django_db
 def test_health_check(api_client: APIClient) -> None:
     response = api_client.get("/api/health/")
@@ -107,12 +101,13 @@ def test_summarize_happy_path(
     api_client: APIClient,
     meeting: Meeting,
     mock_ai_client: MockAIClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     Note.objects.create(
         meeting_id=meeting.id, author="Alice", text="Discussed the roadmap."
     )
 
-    _mock_spawn()
+    monkeypatch.setattr(Summary, "_spawn", _run_spawn_inline)
 
     summarize_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
     assert summarize_response.status_code == status.HTTP_202_ACCEPTED
@@ -129,10 +124,11 @@ def test_summarize_failure_marks_summary_failed(
     api_client: APIClient,
     meeting: Meeting,
     mock_ai_client: MockAIClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     mock_ai_client.result = RuntimeError("Anthropic API unavailable")
 
-    _mock_spawn()
+    monkeypatch.setattr(Summary, "_spawn", _run_spawn_inline)
 
     summarize_response = api_client.post(f"/api/meetings/{meeting.id}/summarize/")
     assert summarize_response.status_code == status.HTTP_202_ACCEPTED
