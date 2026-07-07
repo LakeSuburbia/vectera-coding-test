@@ -13,4 +13,4 @@ pytest-cov>=5.0,<6.0
 black>=24.0,<25.0
 isort>=5.13,<6.0
 
-anthropic
+anthropic>=0.116.0,<0.117.0
