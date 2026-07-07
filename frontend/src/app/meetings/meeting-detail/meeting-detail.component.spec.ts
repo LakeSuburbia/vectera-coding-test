@@ -210,15 +210,48 @@ describe('MeetingDetailComponent', () => {
       expect(meetingServiceSpy.getSummary).not.toHaveBeenCalled();
     });
 
-    it('sets an error message when polling fails', fakeAsync(() => {
+    it('keeps polling through a single transient error and recovers', fakeAsync(() => {
+      component.meetingId = 5;
+      meetingServiceSpy.generateSummary.and.returnValue(of({ detail: 'ok' }));
+      meetingServiceSpy.getSummary.and.returnValues(
+        throwError(() => new Error('network blip')),
+        of(buildSummary({ status: 'running' })),
+        of(buildSummary({ status: 'ready', content: 'Recovered' }))
+      );
+
+      component.generateSummary();
+      tick();
+      expect(component.polling).toBe(true);
+      expect(component.summaryActionError).toBeNull();
+
+      tick(2000);
+      expect(component.summary?.status).toBe('running');
+      expect(component.polling).toBe(true);
+
+      tick(2000);
+      expect(component.summary?.status).toBe('ready');
+      expect(component.summary?.content).toBe('Recovered');
+      expect(component.polling).toBe(false);
+      expect(component.summaryActionError).toBeNull();
+    }));
+
+    it('stops polling and reports failure after repeated consecutive errors', fakeAsync(() => {
       component.meetingId = 5;
       meetingServiceSpy.generateSummary.and.returnValue(of({ detail: 'ok' }));
       meetingServiceSpy.getSummary.and.returnValue(throwError(() => new Error('network down')));
 
       component.generateSummary();
       tick();
+      expect(component.polling).toBe(true);
+      expect(component.summaryActionError).toBeNull();
 
-      expect(component.summaryActionError).toBe('Failed to check summary status.');
+      tick(2000);
+      expect(component.polling).toBe(true);
+
+      tick(2000);
+      expect(component.summaryActionError).toBe(
+        'Failed to check summary status. Please refresh the page.'
+      );
       expect(component.polling).toBe(false);
     }));
   });

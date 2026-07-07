@@ -79,3 +79,4 @@ Time-spent: 1h
 summarize()
 - Avoid concurrency by using a pg_lock during Summary.initialize() & Summary.start()
 - Small bugfixes
+- Added retries to pollSummary()

@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { interval, Subscription } from 'rxjs';
-import { startWith, switchMap, takeWhile, tap } from 'rxjs/operators';
+import { interval, of, Subscription } from 'rxjs';
+import { catchError, startWith, switchMap, takeWhile, tap } from 'rxjs/operators';
 
 import { Meeting } from '../../core/models/meeting.model';
 import { Note, CreateNotePayload } from '../../core/models/note.model';
@@ -10,6 +10,7 @@ import { MeetingService } from '../../core/services/meeting.service';
 import { summaryBadgeClass } from '../../core/summary-badge.util';
 
 const POLL_INTERVAL_MS = 2000;
+const MAX_CONSECUTIVE_POLL_FAILURES = 3;
 
 @Component({
   selector: 'app-meeting-detail',
@@ -135,23 +136,36 @@ export class MeetingDetailComponent implements OnInit, OnDestroy {
   private pollSummary(): void {
     this.pollSub?.unsubscribe();
     this.polling = true;
+    this.summaryActionError = null;
+    let consecutiveFailures = 0;
+
     this.pollSub = interval(POLL_INTERVAL_MS)
       .pipe(
         startWith(0),
-        switchMap(() => this.meetingService.getSummary(this.meetingId)),
-        tap((summary) => (this.summary = summary)),
-        takeWhile(
-          (summary) => summary.status === 'pending' || summary.status === 'running',
-          true
-        )
+        switchMap(() =>
+          this.meetingService.getSummary(this.meetingId).pipe(
+            tap(() => (consecutiveFailures = 0)),
+            catchError(() => {
+              consecutiveFailures++;
+              return of(null);
+            })
+          )
+        ),
+        tap((summary) => {
+          if (summary) this.summary = summary;
+        }),
+        takeWhile((summary) => {
+          if (summary === null) return consecutiveFailures < MAX_CONSECUTIVE_POLL_FAILURES;
+          return summary.status === 'pending' || summary.status === 'running';
+        }, true)
       )
       .subscribe({
-        error: () => {
-          this.summaryActionError = 'Failed to check summary status.';
-          this.polling = false;
-        },
         complete: () => {
           this.polling = false;
+          if (consecutiveFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
+            this.summaryActionError =
+              'Failed to check summary status. Please refresh the page.';
+          }
         },
       });
   }
